@@ -180,6 +180,7 @@ export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
   const [activeTool, setActiveTool] = useState("home");
+  const [toolMenuOpen, setToolMenuOpen] = useState(false);
 
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -236,6 +237,7 @@ export default function Home() {
   async function loadMessages(sessionId) {
     setActiveSessionId(sessionId);
     setActiveTool("chat");
+    setToolMenuOpen(false);
 
     try {
       const res = await fetch(
@@ -259,6 +261,7 @@ export default function Home() {
 
   function newChat() {
     setActiveTool("chat");
+    setToolMenuOpen(false);
     setActiveSessionId(null);
     setChats([]);
     setMessage("");
@@ -725,65 +728,77 @@ export default function Home() {
           </div>
         </div>
 
-        <nav className="tool-list">
-          {tools.map((tool) => (
-            <button
-              key={tool.id}
-              className={
-                activeTool === tool.id
-                  ? "tool-button active"
-                  : "tool-button"
-              }
-              onClick={() => setActiveTool(tool.id)}
-            >
-              <span>{tool.icon}</span>
-              {tool.name}
-            </button>
-          ))}
-        </nav>
+        <button
+          className="tool-toggle-btn"
+          onClick={() => setToolMenuOpen(!toolMenuOpen)}
+        >
+          {toolMenuOpen ? "Tutup Menu ▲" : "Buka Menu Tools ▼"}
+        </button>
 
-        <div className="history-box">
-          <button className="new-chat-btn" onClick={newChat}>
-            + Chat Baru
-          </button>
-
-          <h3>History Chat</h3>
-
-          <div className="history-list">
-            {sessions.length === 0 && (
-              <p className="empty-history">Belum ada history.</p>
-            )}
-
-            {sessions.map((session) => (
-              <div
-                key={session.id}
+        <div className={toolMenuOpen ? "sidebar-body open" : "sidebar-body"}>
+          <nav className="tool-list">
+            {tools.map((tool) => (
+              <button
+                key={tool.id}
                 className={
-                  activeSessionId === session.id
-                    ? "history-item active"
-                    : "history-item"
+                  activeTool === tool.id
+                    ? "tool-button active"
+                    : "tool-button"
                 }
+                onClick={() => {
+                  setActiveTool(tool.id);
+                  setToolMenuOpen(false);
+                }}
               >
-                <button onClick={() => loadMessages(session.id)}>
-                  {session.title}
-                </button>
-
-                <div className="history-actions">
-                  <span onClick={() => renameSession(session.id)}>
-                    ✏️
-                  </span>
-
-                  <span onClick={() => deleteSession(session.id)}>
-                    🗑️
-                  </span>
-                </div>
-              </div>
+                <span>{tool.icon}</span>
+                {tool.name}
+              </button>
             ))}
-          </div>
-        </div>
+          </nav>
 
-        <div className="sidebar-footer">
-          <p>{user.email}</p>
-          <button onClick={logout}>Logout</button>
+          <div className="history-box">
+            <button className="new-chat-btn" onClick={newChat}>
+              + Chat Baru
+            </button>
+
+            <h3>History Chat</h3>
+
+            <div className="history-list">
+              {sessions.length === 0 && (
+                <p className="empty-history">Belum ada history.</p>
+              )}
+
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={
+                    activeSessionId === session.id
+                      ? "history-item active"
+                      : "history-item"
+                  }
+                >
+                  <button onClick={() => loadMessages(session.id)}>
+                    {session.title}
+                  </button>
+
+                  <div className="history-actions">
+                    <span onClick={() => renameSession(session.id)}>
+                      ✏️
+                    </span>
+
+                    <span onClick={() => deleteSession(session.id)}>
+                      🗑️
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="sidebar-footer">
+            <p>{user.email}</p>
+            <button onClick={logout}>Logout</button>
+          </div>
         </div>
       </aside>
 
