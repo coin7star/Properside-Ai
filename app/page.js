@@ -63,6 +63,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [isGuest, setIsGuest] = useState(false);
   const [activeTool, setActiveTool] = useState("home");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -131,6 +132,7 @@ export default function Home() {
 
   function openTool(toolId) {
     setActiveTool(toolId);
+    setShowProfileMenu(false);
 
     if (toolId === "chat") {
       newChat();
@@ -742,6 +744,7 @@ export default function Home() {
 
     setUser(null);
     setIsGuest(false);
+    setShowProfileMenu(false);
     setChats([]);
     setSessions([]);
     setActiveSessionId(null);
@@ -846,102 +849,108 @@ export default function Home() {
   }
 
   return (
-    <main className={activeTool === "home" ? "workspace home-mode" : "workspace"}>
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-logo small">P</div>
+    <main
+      className={activeTool === "home" ? "workspace home-mode" : "workspace"}
+    >
+      {activeTool !== "home" && (
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <div className="brand-logo small">P</div>
 
-          <div>
-            <h2>Properside</h2>
-            <span>{isLoggedIn ? "AI Workspace" : "Guest Mode"}</span>
+            <div>
+              <h2>Properside</h2>
+              <span>{isLoggedIn ? "AI Workspace" : "Guest Mode"}</span>
+            </div>
           </div>
-        </div>
 
-        {!isLoggedIn && (
-          <div className="guest-warning">
-            <strong>Guest Mode</strong>
-            <p>
-              Data chat dan tools tidak disimpan. Login Google untuk menyimpan
-              semuanya.
-            </p>
-          </div>
-        )}
-
-        <nav className="tool-list">
-          <button
-            className={
-              activeTool === "home" ? "tool-button active" : "tool-button"
-            }
-            onClick={() => setActiveTool("home")}
-          >
-            <span>🏠</span>
-            Beranda
-          </button>
-
-          {tools.map((tool) => (
-            <button
-              key={tool.id}
-              className={
-                activeTool === tool.id ? "tool-button active" : "tool-button"
-              }
-              onClick={() => setActiveTool(tool.id)}
-            >
-              <span>{tool.icon}</span>
-              {tool.name}
-            </button>
-          ))}
-        </nav>
-
-        <div className="history-box">
-          <button className="new-chat-btn" onClick={newChat}>
-            + Chat Baru
-          </button>
-
-          <h3>History Chat</h3>
-
-          {!isLoggedIn ? (
-            <p className="empty-history">
-              History tidak tersedia di Guest Mode.
-            </p>
-          ) : (
-            <div className="history-list">
-              {sessions.length === 0 && (
-                <p className="empty-history">Belum ada history.</p>
-              )}
-
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className={
-                    activeSessionId === session.id
-                      ? "history-item active"
-                      : "history-item"
-                  }
-                >
-                  <button onClick={() => loadMessages(session.id)}>
-                    {session.title}
-                  </button>
-
-                  <div className="history-actions">
-                    <span onClick={() => renameSession(session.id)}>✏️</span>
-                    <span onClick={() => deleteSession(session.id)}>🗑️</span>
-                  </div>
-                </div>
-              ))}
+          {!isLoggedIn && (
+            <div className="guest-warning">
+              <strong>Guest Mode</strong>
+              <p>
+                Data chat dan tools tidak disimpan. Login Google untuk menyimpan
+                semuanya.
+              </p>
             </div>
           )}
-        </div>
 
-        <div className="sidebar-footer">
-          <p>{isLoggedIn ? user.email : "Guest User"}</p>
-          <button onClick={logout}>
-            {isLoggedIn ? "Logout" : "Keluar Guest"}
-          </button>
-        </div>
-      </aside>
+          <nav className="tool-list">
+            <button
+              className={
+                activeTool === "home" ? "tool-button active" : "tool-button"
+              }
+              onClick={() => setActiveTool("home")}
+            >
+              <span>🏠</span>
+              Beranda
+            </button>
+
+            {tools.map((tool) => (
+              <button
+                key={tool.id}
+                className={
+                  activeTool === tool.id ? "tool-button active" : "tool-button"
+                }
+                onClick={() => setActiveTool(tool.id)}
+              >
+                <span>{tool.icon}</span>
+                {tool.name}
+              </button>
+            ))}
+          </nav>
+
+          <div className="history-box">
+            <button className="new-chat-btn" onClick={newChat}>
+              + Chat Baru
+            </button>
+
+            <h3>History Chat</h3>
+
+            {!isLoggedIn ? (
+              <p className="empty-history">
+                History tidak tersedia di Guest Mode.
+              </p>
+            ) : (
+              <div className="history-list">
+                {sessions.length === 0 && (
+                  <p className="empty-history">Belum ada history.</p>
+                )}
+
+                {sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={
+                      activeSessionId === session.id
+                        ? "history-item active"
+                        : "history-item"
+                    }
+                  >
+                    <button onClick={() => loadMessages(session.id)}>
+                      {session.title}
+                    </button>
+
+                    <div className="history-actions">
+                      <span onClick={() => renameSession(session.id)}>✏️</span>
+                      <span onClick={() => deleteSession(session.id)}>🗑️</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="sidebar-footer">
+            <p>{isLoggedIn ? user.email : "Guest User"}</p>
+            <button onClick={logout}>
+              {isLoggedIn ? "Logout" : "Keluar Guest"}
+            </button>
+          </div>
+        </aside>
+      )}
 
       <section className="main-area">
-        <header className="topbar">
+        <header
+          className={activeTool === "home" ? "topbar topbar-home" : "topbar"}
+        >
           <div>
             <h1>
               {activeTool === "home"
@@ -956,8 +965,75 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="user-pill">
-            {isLoggedIn ? user.email?.charAt(0).toUpperCase() : "G"}
+          <div className="topbar-actions">
+            {activeTool !== "home" && (
+              <button
+                className="back-home-btn"
+                onClick={() => setActiveTool("home")}
+              >
+                🏠 Beranda
+              </button>
+            )}
+
+            <div className="profile-menu-wrap">
+              <button
+                className="user-pill"
+                onClick={() => setShowProfileMenu((prev) => !prev)}
+              >
+                {isLoggedIn ? user.email?.charAt(0).toUpperCase() : "G"}
+              </button>
+
+              {showProfileMenu && (
+                <div className="profile-menu">
+                  <div className="profile-menu-head">
+                    <strong>{isLoggedIn ? "Akun Google" : "Guest Mode"}</strong>
+                    <small>{isLoggedIn ? user.email : "Data tidak disimpan"}</small>
+                  </div>
+
+                  <button
+                    className="profile-menu-item"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setActiveTool("home");
+                    }}
+                  >
+                    🏠 Beranda
+                  </button>
+
+                  {activeTool === "home" && (
+                    <>
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => openTool("chat")}
+                      >
+                        💬 AI Chat
+                      </button>
+
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => openTool("tempmail")}
+                      >
+                        📧 Tempmail
+                      </button>
+
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => openTool("anime")}
+                      >
+                        🎬 Stream Anime
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    className="profile-menu-item danger"
+                    onClick={logout}
+                  >
+                    {isLoggedIn ? "🚪 Logout" : "🚪 Keluar Guest"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -982,14 +1058,11 @@ export default function Home() {
                 onClick={() => openTool("chat")}
               >
                 <div className="app-icon purple">💬</div>
-
                 <h2>AI Chat</h2>
-
                 <p>
                   Ngobrol dengan AI untuk coding, menulis artikel, membuat ide,
                   atau bertanya apa saja.
                 </p>
-
                 <span>Buka Aplikasi →</span>
               </button>
 
@@ -998,14 +1071,11 @@ export default function Home() {
                 onClick={() => openTool("tempmail")}
               >
                 <div className="app-icon green">📧</div>
-
                 <h2>Tempmail</h2>
-
                 <p>
                   Buat email sementara sekali pakai untuk daftar akun tanpa
                   takut inbox utama penuh spam.
                 </p>
-
                 <span>Buka Alat →</span>
               </button>
 
@@ -1014,14 +1084,11 @@ export default function Home() {
                 onClick={() => openTool("anime")}
               >
                 <div className="app-icon orange">🎬</div>
-
                 <h2>Stream Anime</h2>
-
                 <p>
                   Cari anime, lihat jadwal, ongoing, complete, detail episode,
                   dan bookmark anime favorit.
                 </p>
-
                 <span>Buka Tool →</span>
               </button>
 
@@ -1030,14 +1097,11 @@ export default function Home() {
                 onClick={() => openTool("image")}
               >
                 <div className="app-icon cyan">🖼️</div>
-
                 <h2>Image Tool</h2>
-
                 <p>
                   Menu image sudah disiapkan untuk nanti disambungkan ke fitur
                   gambar.
                 </p>
-
                 <span>Buka Menu →</span>
               </button>
 
@@ -1046,14 +1110,11 @@ export default function Home() {
                 onClick={() => openTool("text")}
               >
                 <div className="app-icon pink">✍️</div>
-
                 <h2>Text Writer</h2>
-
                 <p>
                   Menu penulis teks untuk artikel, caption, ide konten, dan
                   tulisan lainnya.
                 </p>
-
                 <span>Buka Menu →</span>
               </button>
 
@@ -1062,14 +1123,11 @@ export default function Home() {
                 onClick={() => openTool("code")}
               >
                 <div className="app-icon blue">💻</div>
-
                 <h2>Code Helper</h2>
-
                 <p>
                   Menu bantuan coding untuk project web, bug fixing, dan
                   pengembangan fitur.
                 </p>
-
                 <span>Buka Menu →</span>
               </button>
 
@@ -1078,14 +1136,11 @@ export default function Home() {
                 onClick={() => openTool("translate")}
               >
                 <div className="app-icon teal">🌐</div>
-
                 <h2>Translate</h2>
-
                 <p>
                   Menu translate untuk kebutuhan bahasa, ringkasan, dan
                   pemahaman teks.
                 </p>
-
                 <span>Buka Menu →</span>
               </button>
 
@@ -1094,14 +1149,11 @@ export default function Home() {
                 onClick={() => openTool("summary")}
               >
                 <div className="app-icon gray">📄</div>
-
                 <h2>Summarizer</h2>
-
                 <p>
                   Menu ringkasan untuk merangkum artikel, catatan, dokumen, dan
                   teks panjang.
                 </p>
-
                 <span>Buka Menu →</span>
               </button>
             </div>
@@ -1162,7 +1214,6 @@ export default function Home() {
           <section className="placeholder-panel">
             <div className="placeholder-card anime-panel">
               <div className="placeholder-icon">🎬</div>
-
               <h2>Stream Anime</h2>
 
               <p>
@@ -1172,15 +1223,9 @@ export default function Home() {
 
               <div className="anime-controls">
                 <button onClick={() => loadAnime("home", 1)}>Home</button>
-                <button onClick={() => loadAnime("schedule", 1)}>
-                  Schedule
-                </button>
-                <button onClick={() => loadAnime("ongoing", 1)}>
-                  Ongoing
-                </button>
-                <button onClick={() => loadAnime("complete", 1)}>
-                  Complete
-                </button>
+                <button onClick={() => loadAnime("schedule", 1)}>Schedule</button>
+                <button onClick={() => loadAnime("ongoing", 1)}>Ongoing</button>
+                <button onClick={() => loadAnime("complete", 1)}>Complete</button>
                 <button onClick={showBookmarkedAnime}>Bookmark</button>
               </div>
 
@@ -1190,7 +1235,6 @@ export default function Home() {
                   onChange={(e) => setAnimeQuery(e.target.value)}
                   placeholder="Cari anime..."
                 />
-
                 <button onClick={() => loadAnime("search", 1)}>Search</button>
               </div>
 
@@ -1232,11 +1276,6 @@ export default function Home() {
                                 toggleAnimeBookmark(item, event)
                               }
                               disabled={bookmarkLoading}
-                              title={
-                                isLoggedIn
-                                  ? "Bookmark anime"
-                                  : "Login Google untuk bookmark"
-                              }
                             >
                               {isAnimeBookmarked(item) ? "★" : "☆"}
                             </button>
@@ -1351,9 +1390,7 @@ export default function Home() {
 
                                 <div className="anime-info-card orange">
                                   <span>Duration</span>
-                                  <strong>
-                                    {renderValue(detail.duration)}
-                                  </strong>
+                                  <strong>{renderValue(detail.duration)}</strong>
                                 </div>
                               </div>
 
@@ -1617,9 +1654,7 @@ export default function Home() {
 
                     <button
                       onClick={() => checkTempMail(activeTempMail)}
-                      style={{
-                        marginTop: 10
-                      }}
+                      style={{ marginTop: 10 }}
                     >
                       {tempLoading ? "Checking..." : "Check Inbox"}
                     </button>
