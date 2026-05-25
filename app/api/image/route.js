@@ -2,10 +2,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getGeminiImageUrl() {
-  const model =
-    process.env.GEMINI_IMAGE_MODEL ||
-    "gemini-2.5-flash-image";
-
+  const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 }
 
@@ -13,8 +10,16 @@ function getFalModel() {
   return process.env.FAL_IMAGE_MODEL || "fal-ai/flux/schnell";
 }
 
-function getImageProvider() {
+function getDefaultImageProvider() {
   return (process.env.IMAGE_PROVIDER || "auto").toLowerCase();
+}
+
+function normalizeProvider(provider) {
+  const value = String(provider || "").toLowerCase().trim();
+
+  if (value === "gemini") return "gemini";
+  if (value === "fal") return "fal";
+  return "auto";
 }
 
 function cleanGeminiError(message = "") {
@@ -36,10 +41,7 @@ function cleanGeminiError(message = "") {
     return "GEMINI_API_KEY salah, belum aktif, atau tidak punya izin untuk model image.";
   }
 
-  if (
-    lower.includes("not found") ||
-    lower.includes("model")
-  ) {
+  if (lower.includes("not found") || lower.includes("model")) {
     return "Model Gemini Image tidak tersedia untuk API key ini.";
   }
 
@@ -62,7 +64,8 @@ function cleanFalError(message = "") {
     lower.includes("quota") ||
     lower.includes("limit") ||
     lower.includes("insufficient") ||
-    lower.includes("billing")
+    lower.includes("billing") ||
+    lower.includes("saldo")
   ) {
     return "Quota / saldo fal.ai kamu tidak cukup atau limit habis.";
   }
@@ -109,9 +112,7 @@ async function imageUrlToBase64(imageUrl) {
     throw new Error("Gagal mengambil gambar dari URL hasil generate.");
   }
 
-  const mimeType =
-    res.headers.get("content-type") || "image/png";
-
+  const mimeType = res.headers.get("content-type") || "image/png";
   const buffer = await res.arrayBuffer();
 
   return {
@@ -121,34 +122,29 @@ async function imageUrlToBase64(imageUrl) {
 }
 
 async function generateWithGemini(prompt, apiKey) {
-  const geminiRes = await fetch(
-    `${getGeminiImageUrl()}?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ]
-      })
-    }
-  );
+  const geminiRes = await fetch(`${getGeminiImageUrl()}?key=${apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ]
+    })
+  });
 
   const data = await geminiRes.json();
 
   if (!geminiRes.ok) {
-    const rawMessage =
-      data?.error?.message ||
-      "Gagal menghubungi Gemini API.";
+    const rawMessage = data?.error?.message || "Gagal menghubungi Gemini API.";
 
     return {
       success: false,
@@ -190,23 +186,20 @@ async function generateWithGemini(prompt, apiKey) {
 async function generateWithFal(prompt, falKey) {
   const model = getFalModel();
 
-  const falRes = await fetch(
-    `https://fal.run/${model}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Key ${falKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        prompt,
-        image_size: "square_hd",
-        num_images: 1,
-        enable_safety_checker: true,
-        output_format: "png"
-      })
-    }
-  );
+  const falRes = await fetch(`https://fal.run/${model}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Key ${falKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt,
+      image_size: "square_hd",
+      num_images: 1,
+      enable_safety_checker: true,
+      output_format: "png"
+    })
+  });
 
   let data = null;
 
@@ -218,10 +211,7 @@ async function generateWithFal(prompt, falKey) {
 
   if (!falRes.ok) {
     const rawMessage =
-      data?.detail ||
-      data?.error ||
-      data?.message ||
-      "Gagal menghubungi fal.ai.";
+      data?.detail || data?.error || data?.message || "Gagal menghubungi fal.ai.";
 
     return {
       success: false,
@@ -232,11 +222,7 @@ async function generateWithFal(prompt, falKey) {
     };
   }
 
-  const imageUrl =
-    data?.images?.[0]?.url ||
-    data?.image?.url ||
-    data?.url ||
-    "";
+  const imageUrl = data?.images?.[0]?.url || data?.image?.url || data?.url || "";
 
   if (!imageUrl) {
     return {
@@ -254,9 +240,7 @@ async function generateWithFal(prompt, falKey) {
     success: true,
     image: imageData.base64,
     mimeType:
-      data?.images?.[0]?.content_type ||
-      imageData.mimeType ||
-      "image/png",
+      data?.images?.[0]?.content_type || imageData.mimeType || "image/png",
     text: "Gambar berhasil dibuat memakai fal.ai.",
     provider: "fal",
     imageUrl
@@ -265,7 +249,11 @@ async function generateWithFal(prompt, falKey) {
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
+    const prompt = body?.prompt;
+    const requestedProvider = normalizeProvider(
+      body?.provider || getDefaultImageProvider()
+    );
 
     if (!prompt || !prompt.trim()) {
       return Response.json(
@@ -278,44 +266,10 @@ export async function POST(req) {
     }
 
     const finalPrompt = prompt.trim();
-
-    const provider = getImageProvider();
-
     const geminiKey = process.env.GEMINI_API_KEY;
     const falKey = process.env.FAL_KEY;
 
-    if (provider === "fal") {
-      if (!falKey) {
-        return Response.json(
-          {
-            success: false,
-            error: "FAL_KEY belum diatur di environment."
-          },
-          { status: 500 }
-        );
-      }
-
-      const falResult = await generateWithFal(
-        finalPrompt,
-        falKey
-      );
-
-      if (falResult.success) {
-        return Response.json(falResult);
-      }
-
-      return Response.json(
-        {
-          success: false,
-          error: falResult.error,
-          rawError: falResult.rawError,
-          provider: "fal"
-        },
-        { status: 500 }
-      );
-    }
-
-    if (provider === "gemini") {
+    if (requestedProvider === "gemini") {
       if (!geminiKey) {
         return Response.json(
           {
@@ -326,10 +280,7 @@ export async function POST(req) {
         );
       }
 
-      const geminiResult = await generateWithGemini(
-        finalPrompt,
-        geminiKey
-      );
+      const geminiResult = await generateWithGemini(finalPrompt, geminiKey);
 
       if (geminiResult.success) {
         return Response.json(geminiResult);
@@ -346,11 +297,36 @@ export async function POST(req) {
       );
     }
 
-    if (geminiKey) {
-      const geminiResult = await generateWithGemini(
-        finalPrompt,
-        geminiKey
+    if (requestedProvider === "fal") {
+      if (!falKey) {
+        return Response.json(
+          {
+            success: false,
+            error: "FAL_KEY belum diatur di environment."
+          },
+          { status: 500 }
+        );
+      }
+
+      const falResult = await generateWithFal(finalPrompt, falKey);
+
+      if (falResult.success) {
+        return Response.json(falResult);
+      }
+
+      return Response.json(
+        {
+          success: false,
+          error: falResult.error,
+          rawError: falResult.rawError,
+          provider: "fal"
+        },
+        { status: 500 }
       );
+    }
+
+    if (geminiKey) {
+      const geminiResult = await generateWithGemini(finalPrompt, geminiKey);
 
       if (geminiResult.success) {
         return Response.json(geminiResult);
@@ -370,16 +346,13 @@ export async function POST(req) {
     }
 
     if (falKey) {
-      const falResult = await generateWithFal(
-        finalPrompt,
-        falKey
-      );
+      const falResult = await generateWithFal(finalPrompt, falKey);
 
       if (falResult.success) {
         return Response.json({
           ...falResult,
           text:
-            "Gambar berhasil dibuat memakai fal.ai. Gemini tidak dipakai karena quota/limit atau provider auto."
+            "Gambar berhasil dibuat memakai fal.ai. Mode Auto memindahkan generate ke fal.ai."
         });
       }
 
@@ -406,9 +379,7 @@ export async function POST(req) {
     return Response.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Terjadi error pada route image."
+        error: error?.message || "Terjadi error pada route image."
       },
       { status: 500 }
     );
