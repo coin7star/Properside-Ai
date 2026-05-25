@@ -8,6 +8,7 @@ import { getSupabase } from "./utils/supabaseClient";
 const tools = [
   { id: "chat", name: "AI Chat", icon: "💬" },
   { id: "tempmail", name: "Tempmail", icon: "📧" },
+  { id: "anime", name: "STREAM ANIME", icon: "🎬" },
   { id: "image", name: "Image Tool", icon: "🖼️" },
   { id: "text", name: "Text Writer", icon: "✍️" },
   { id: "code", name: "Code Helper", icon: "💻" },
@@ -74,6 +75,12 @@ export default function Home() {
   const [tempMessages, setTempMessages] = useState([]);
   const [tempLoading, setTempLoading] = useState(false);
 
+  const [animeItems, setAnimeItems] = useState([]);
+  const [animeLoading, setAnimeLoading] = useState(false);
+  const [animeQuery, setAnimeQuery] = useState("");
+  const [animePage, setAnimePage] = useState(1);
+  const [animeMode, setAnimeMode] = useState("home");
+
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
 
@@ -104,6 +111,12 @@ export default function Home() {
       loadTempMails(user.email);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (activeTool === "anime") {
+      loadAnime("home", 1);
+    }
+  }, [activeTool]);
 
   async function loadSessions(email) {
     const res = await fetch(`/api/chat?action=sessions&user_email=${email}`);
@@ -268,6 +281,92 @@ export default function Home() {
       msg?.description ||
       "Tidak ada isi pesan."
     );
+  }
+
+  function normalizeAnimeList(data) {
+    if (Array.isArray(data)) return data;
+
+    return (
+      data?.anime ||
+      data?.animes ||
+      data?.list ||
+      data?.ongoing ||
+      data?.complete ||
+      data?.completed ||
+      data?.schedule ||
+      data?.home ||
+      data?.latest ||
+      data?.popular ||
+      data?.data ||
+      []
+    );
+  }
+
+  function getAnimeTitle(item) {
+    return (
+      item?.title ||
+      item?.name ||
+      item?.anime_title ||
+      item?.judul ||
+      item?.anime_name ||
+      "No Title"
+    );
+  }
+
+  function getAnimeImage(item) {
+    return (
+      item?.image ||
+      item?.thumbnail ||
+      item?.thumb ||
+      item?.poster ||
+      item?.cover ||
+      item?.img ||
+      ""
+    );
+  }
+
+  function getAnimeInfo(item) {
+    return (
+      item?.episode ||
+      item?.latest_episode ||
+      item?.status ||
+      item?.release_day ||
+      item?.day ||
+      item?.type ||
+      item?.score ||
+      "Info tidak tersedia"
+    );
+  }
+
+  async function loadAnime(mode = "home", page = 1) {
+    try {
+      setAnimeLoading(true);
+      setAnimeMode(mode);
+      setAnimePage(page);
+
+      let url = `/api/anime?action=${mode}&page=${page}`;
+
+      if (mode === "search") {
+        if (!animeQuery.trim()) {
+          alert("Tulis judul anime dulu.");
+          setAnimeLoading(false);
+          return;
+        }
+
+        url += `&q=${encodeURIComponent(animeQuery.trim())}`;
+      }
+
+      const res = await fetch(url);
+      const json = await res.json();
+
+      const list = normalizeAnimeList(json?.data);
+
+      setAnimeItems(Array.isArray(list) ? list : []);
+    } catch {
+      alert("Gagal mengambil data anime.");
+    } finally {
+      setAnimeLoading(false);
+    }
   }
 
   async function loginGoogle() {
@@ -551,6 +650,86 @@ export default function Home() {
               <button onClick={sendMessage} disabled={loading}>
                 Kirim
               </button>
+            </div>
+          </section>
+        ) : activeTool === "anime" ? (
+          <section className="placeholder-panel">
+            <div className="placeholder-card anime-panel">
+              <div className="placeholder-icon">🎬</div>
+
+              <h2>STREAM ANIME</h2>
+
+              <p>
+                Cari anime, lihat ongoing, complete, schedule, dan daftar
+                terbaru. Mode ini hanya menampilkan katalog/info anime.
+              </p>
+
+              <div className="anime-controls">
+                <button onClick={() => loadAnime("home", 1)}>Home</button>
+                <button onClick={() => loadAnime("schedule", 1)}>
+                  Schedule
+                </button>
+                <button onClick={() => loadAnime("ongoing", 1)}>
+                  Ongoing
+                </button>
+                <button onClick={() => loadAnime("complete", 1)}>
+                  Complete
+                </button>
+              </div>
+
+              <div className="anime-search">
+                <input
+                  value={animeQuery}
+                  onChange={(e) => setAnimeQuery(e.target.value)}
+                  placeholder="Cari anime..."
+                />
+
+                <button onClick={() => loadAnime("search", 1)}>Search</button>
+              </div>
+
+              {animeLoading ? (
+                <p>Loading anime...</p>
+              ) : (
+                <div className="anime-grid">
+                  {animeItems.length === 0 ? (
+                    <p>Belum ada data anime.</p>
+                  ) : (
+                    animeItems.map((item, index) => (
+                      <div className="anime-card" key={index}>
+                        {getAnimeImage(item) && (
+                          <img
+                            src={getAnimeImage(item)}
+                            alt={getAnimeTitle(item)}
+                          />
+                        )}
+
+                        <div className="anime-card-body">
+                          <h3>{getAnimeTitle(item)}</h3>
+                          <p>{getAnimeInfo(item)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {(animeMode === "ongoing" || animeMode === "complete") && (
+                <div className="anime-pagination">
+                  <button
+                    onClick={() =>
+                      loadAnime(animeMode, Math.max(1, animePage - 1))
+                    }
+                  >
+                    Prev
+                  </button>
+
+                  <span>Page {animePage}</span>
+
+                  <button onClick={() => loadAnime(animeMode, animePage + 1)}>
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </section>
         ) : activeTool === "tempmail" ? (
