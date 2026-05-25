@@ -2250,3 +2250,46 @@ body {
     width: 210px;
   }
 }
+
+/* FIX profile dropdown ketutup hero di Beranda */
+.workspace.home-mode .main-area {
+  position: relative;
+  overflow: visible;
+}
+
+.workspace.home-mode .topbar,
+.topbar-home {
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  overflow: visible;
+}
+
+.topbar-actions,
+.profile-menu-wrap {
+  position: relative;
+  z-index: 10000;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 250px;
+  z-index: 99999;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.workspace-hero {
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-app-grid {
+  position: relative;
+  z-index: 2;
+}
