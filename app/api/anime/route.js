@@ -7,7 +7,6 @@ const BASE_URL =
 async function fetchAnimeApi(path) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "GET",
-    cache: "no-store",
     headers: {
       Accept: "application/json"
     }
@@ -61,10 +60,12 @@ export async function GET(req) {
 
     const action = searchParams.get("action") || "home";
     const page = searchParams.get("page") || "1";
+
     const query =
       searchParams.get("query") ||
       searchParams.get("q") ||
       "";
+
     const animeId = searchParams.get("animeId") || "";
     const serverId = searchParams.get("serverId") || "";
     const episodeId = searchParams.get("episodeId") || "";
