@@ -24,11 +24,7 @@ function renderInlineFormat(text, keyPrefix = "inline") {
     const isBold = part.startsWith("**") && part.endsWith("**");
 
     if (isBold) {
-      return (
-        <strong key={`${keyPrefix}-${index}`}>
-          {part.slice(2, -2)}
-        </strong>
-      );
+      return <strong key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>;
     }
 
     return <span key={`${keyPrefix}-${index}`}>{part}</span>;
@@ -54,7 +50,6 @@ function MessageContent({ text }) {
             <div className="code-block" key={index}>
               <div className="code-header">
                 <span>{language}</span>
-
                 <button
                   className="copy-btn"
                   onClick={() => navigator.clipboard.writeText(code)}
@@ -180,6 +175,7 @@ export default function Home() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
   const [generatedImage, setGeneratedImage] = useState(null);
+  const [imageProvider, setImageProvider] = useState("auto");
 
   useEffect(() => {
     const client = getSupabase();
@@ -416,6 +412,8 @@ export default function Home() {
     setTempMails([]);
     setActiveTempMail(null);
     setTempMessages([]);
+    setGeneratedImage(null);
+    setImageError("");
   }
 
   async function sendMessage() {
@@ -489,7 +487,8 @@ export default function Home() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          prompt: imagePrompt.trim()
+          prompt: imagePrompt.trim(),
+          provider: imageProvider
         })
       });
 
@@ -507,7 +506,8 @@ export default function Home() {
         base64: data?.image || "",
         dataUrl: `data:${data?.mimeType || "image/png"};base64,${
           data?.image || ""
-        }`
+        }`,
+        provider: data?.provider || imageProvider
       });
     } catch {
       setImageError("Terjadi error saat generate gambar.");
@@ -537,6 +537,12 @@ export default function Home() {
     setImagePrompt(text);
     setActiveTool("image");
     setToolMenuOpen(false);
+  }
+
+  function getProviderLabel(provider) {
+    if (provider === "gemini") return "Gemini";
+    if (provider === "fal") return "fal.ai";
+    return "Auto";
   }
 
   function renderChatHistory() {
@@ -593,7 +599,7 @@ export default function Home() {
           <h2 style={{ textAlign: "center" }}>AI Image Generator</h2>
 
           <p style={{ textAlign: "center" }}>
-            Buat gambar dari teks memakai Gemini 2.5 Flash Image.
+            Buat gambar dari teks dan pilih dulu AI image yang mau dipakai.
           </p>
 
           <div
@@ -603,6 +609,56 @@ export default function Home() {
               gap: 12
             }}
           >
+            <div>
+              <strong style={{ display: "block", marginBottom: 10 }}>
+                Pilih AI Model
+              </strong>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap"
+                }}
+              >
+                {[
+                  { id: "auto", name: "Auto" },
+                  { id: "gemini", name: "Gemini" },
+                  { id: "fal", name: "fal.ai" }
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setImageProvider(item.id)}
+                    style={{
+                      background:
+                        imageProvider === item.id ? "#3d63dd" : "#18181b",
+                      border:
+                        imageProvider === item.id
+                          ? "1px solid #4e74f0"
+                          : "1px solid #2f2f35",
+                      color: "#fff",
+                      borderRadius: 999,
+                      padding: "10px 16px",
+                      cursor: "pointer",
+                      width: "auto"
+                    }}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+
+              <small
+                style={{
+                  display: "block",
+                  marginTop: 10,
+                  color: "#a1a1aa"
+                }}
+              >
+                Mode aktif: {getProviderLabel(imageProvider)}
+              </small>
+            </div>
+
             <textarea
               value={imagePrompt}
               onChange={(e) => setImagePrompt(e.target.value)}
@@ -617,7 +673,8 @@ export default function Home() {
                 padding: 16,
                 fontSize: 15,
                 outline: "none",
-                resize: "vertical"
+                resize: "vertical",
+                boxSizing: "border-box"
               }}
             />
 
@@ -629,13 +686,13 @@ export default function Home() {
               }}
             >
               <button onClick={generateImage} disabled={imageLoading}>
-                {imageLoading ? "Generating..." : "Generate Image"}
+                {imageLoading
+                  ? "Generating..."
+                  : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
               {generatedImage?.dataUrl && (
-                <button onClick={downloadGeneratedImage}>
-                  Download Image
-                </button>
+                <button onClick={downloadGeneratedImage}>Download Image</button>
               )}
             </div>
 
@@ -658,7 +715,8 @@ export default function Home() {
                   color: "#fff",
                   borderRadius: 999,
                   padding: "10px 14px",
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  width: "auto"
                 }}
               >
                 Cyberpunk Car
@@ -676,7 +734,8 @@ export default function Home() {
                   color: "#fff",
                   borderRadius: 999,
                   padding: "10px 14px",
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  width: "auto"
                 }}
               >
                 Mascot Logo
@@ -694,7 +753,8 @@ export default function Home() {
                   color: "#fff",
                   borderRadius: 999,
                   padding: "10px 14px",
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  width: "auto"
                 }}
               >
                 Anime Poster
@@ -708,7 +768,9 @@ export default function Home() {
                   color: "#fca5a5",
                   border: "1px solid rgba(239, 68, 68, 0.3)",
                   borderRadius: 14,
-                  padding: 14
+                  padding: 14,
+                  overflowWrap: "anywhere",
+                  wordBreak: "break-word"
                 }}
               >
                 {imageError}
@@ -742,6 +804,13 @@ export default function Home() {
                     gap: 8
                   }}
                 >
+                  <div>
+                    <strong>Provider:</strong>
+                    <p style={{ marginTop: 6 }}>
+                      {getProviderLabel(generatedImage.provider)}
+                    </p>
+                  </div>
+
                   <div>
                     <strong>Prompt:</strong>
                     <p style={{ marginTop: 6 }}>{generatedImage.prompt}</p>
@@ -784,13 +853,8 @@ export default function Home() {
                 flexWrap: "wrap"
               }}
             >
-              <button onClick={() => setActiveTool("chat")}>
-                Mulai Chat AI
-              </button>
-
-              <button onClick={() => setActiveTool("image")}>
-                Buka AI Image
-              </button>
+              <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
+              <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
             </div>
           </div>
         </section>
@@ -860,8 +924,8 @@ export default function Home() {
             <h2>Tempmail Tool</h2>
 
             <p>
-              Buat banyak email sementara. Email lama tetap tersimpan dan
-              bisa dicek kembali.
+              Buat banyak email sementara. Email lama tetap tersimpan dan bisa
+              dicek kembali.
             </p>
 
             <button onClick={createTempMail} disabled={tempLoading}>
@@ -904,9 +968,7 @@ export default function Home() {
                 <div className="tempmail-box">
                   <h3>Email Aktif</h3>
 
-                  <div className="tempmail-email">
-                    {activeTempMail.email}
-                  </div>
+                  <div className="tempmail-email">{activeTempMail.email}</div>
 
                   <p>Expired: {activeTempMail.deleted_in || "-"}</p>
 
@@ -971,8 +1033,8 @@ export default function Home() {
           <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
 
           <p>
-            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan
-            ke tool khusus.
+            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan ke
+            tool khusus.
           </p>
 
           <button>Coming Soon</button>
@@ -1025,9 +1087,7 @@ export default function Home() {
               <button
                 key={tool.id}
                 className={
-                  activeTool === tool.id
-                    ? "tool-button active"
-                    : "tool-button"
+                  activeTool === tool.id ? "tool-button active" : "tool-button"
                 }
                 onClick={() => {
                   setActiveTool(tool.id);
@@ -1054,9 +1114,7 @@ export default function Home() {
             <p>Properside AI Workspace.</p>
           </div>
 
-          <div className="user-pill">
-            {user.email?.charAt(0).toUpperCase()}
-          </div>
+          <div className="user-pill">{user.email?.charAt(0).toUpperCase()}</div>
         </header>
 
         {renderActiveTool()}
