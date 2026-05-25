@@ -1250,3 +1250,46 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.anime-episode-item {
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+  color: white;
+}
+
+.anime-episode-item:hover {
+  border-color: #2563eb;
+  transform: translateY(-2px);
+}
+
+.episode-detail-box {
+  margin-top: 18px;
+  background: #0f0f11;
+  border: 1px solid #2563eb;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.episode-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.episode-detail-header h4 {
+  margin: 0;
+}
+
+.episode-detail-header button {
+  width: auto;
+  padding: 8px 12px;
+  background: #dc2626;
+}
+
+.episode-detail-content {
+  margin-top: 12px;
+  color: #d4d4d8;
+  line-height: 1.7;
+}
