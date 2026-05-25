@@ -12,7 +12,6 @@ const tools = [
   { id: "code", name: "Code Helper", icon: "💻" },
   { id: "translate", name: "Translate", icon: "🌐" },
   { id: "summary", name: "Summarizer", icon: "📄" },
-  { id: "history", name: "History", icon: "🕘" },
   { id: "settings", name: "Settings", icon: "⚙️" }
 ];
 
@@ -20,6 +19,8 @@ export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
   const [activeTool, setActiveTool] = useState("chat");
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [message, setMessage] = useState("");
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,80 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (user?.email) {
+      loadSessions(user.email);
+    }
+  }, [user]);
+
+  async function loadSessions(email) {
+    const res = await fetch(`/api/chat?action=sessions&user_email=${email}`);
+    const data = await res.json();
+    setSessions(data.data || []);
+  }
+
+  async function loadMessages(sessionId) {
+    setActiveSessionId(sessionId);
+
+    const res = await fetch(
+      `/api/chat?action=messages&user_email=${user.email}&session_id=${sessionId}`
+    );
+
+    const data = await res.json();
+
+    setChats(
+      (data.data || []).map((msg) => ({
+        role: msg.role,
+        text: msg.content
+      }))
+    );
+  }
+
+  function newChat() {
+    setActiveSessionId(null);
+    setChats([]);
+    setMessage("");
+  }
+
+  async function renameSession(sessionId) {
+    const title = prompt("Nama chat baru:");
+
+    if (!title || !title.trim()) return;
+
+    await fetch("/api/chat", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        user_email: user.email,
+        title: title.trim()
+      })
+    });
+
+    loadSessions(user.email);
+  }
+
+  async function deleteSession(sessionId) {
+    const ok = confirm("Hapus history chat ini?");
+
+    if (!ok) return;
+
+    await fetch(
+      `/api/chat?session_id=${sessionId}&user_email=${user.email}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+    if (activeSessionId === sessionId) {
+      newChat();
+    }
+
+    loadSessions(user.email);
+  }
+
   async function loginGoogle() {
     if (!supabase) return;
 
@@ -58,10 +133,12 @@ export default function Home() {
     await supabase.auth.signOut();
     setUser(null);
     setChats([]);
+    setSessions([]);
+    setActiveSessionId(null);
   }
 
   async function sendMessage() {
-    if (!message.trim() || loading) return;
+    if (!message.trim() || loading || !user?.email) return;
 
     const userText = message.trim();
 
@@ -84,11 +161,16 @@ export default function Home() {
         },
         body: JSON.stringify({
           message: userText,
-          user_email: user?.email || null
+          user_email: user.email,
+          session_id: activeSessionId
         })
       });
 
       const data = await res.json();
+
+      if (data.session_id && !activeSessionId) {
+        setActiveSessionId(data.session_id);
+      }
 
       setChats((prev) => [
         ...prev,
@@ -97,6 +179,8 @@ export default function Home() {
           text: data.reply || "Tidak ada jawaban."
         }
       ]);
+
+      loadSessions(user.email);
     } catch {
       setChats((prev) => [
         ...prev,
@@ -119,7 +203,7 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Workspace AI untuk chat, tools, automation, dan fitur lain yang akan ditambahkan.
+            Login dengan Google untuk menyimpan history chat dan menggunakan workspace AI.
           </p>
 
           <button onClick={loginGoogle}>
@@ -159,6 +243,47 @@ export default function Home() {
           ))}
         </nav>
 
+        <div className="history-box">
+          <button className="new-chat-btn" onClick={newChat}>
+            + Chat Baru
+          </button>
+
+          <h3>History Chat</h3>
+
+          <div className="history-list">
+            {sessions.length === 0 && (
+              <p className="empty-history">
+                Belum ada history.
+              </p>
+            )}
+
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className={
+                  activeSessionId === session.id
+                    ? "history-item active"
+                    : "history-item"
+                }
+              >
+                <button onClick={() => loadMessages(session.id)}>
+                  {session.title}
+                </button>
+
+                <div className="history-actions">
+                  <span onClick={() => renameSession(session.id)}>
+                    ✏️
+                  </span>
+
+                  <span onClick={() => deleteSession(session.id)}>
+                    🗑️
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="sidebar-footer">
           <p>{user.email}</p>
 
@@ -172,7 +297,7 @@ export default function Home() {
         <header className="topbar">
           <div>
             <h1>{tools.find((t) => t.id === activeTool)?.name}</h1>
-            <p>Selamat datang di Properside AI Workspace.</p>
+            <p>History chat tersimpan otomatis setelah login Google.</p>
           </div>
 
           <div className="user-pill">
@@ -187,7 +312,7 @@ export default function Home() {
                 <div className="empty-chat">
                   <h2>Apa yang ingin kamu buat hari ini?</h2>
                   <p>
-                    Tanya apa saja ke Properside AI. Jawaban diproses menggunakan Groq dan tersimpan ke Supabase.
+                    Buat chat baru atau pilih history di sidebar kiri.
                   </p>
                 </div>
               )}
@@ -240,7 +365,7 @@ export default function Home() {
               <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
 
               <p>
-                Fitur ini sudah disiapkan sebagai menu. Nanti bisa disambungkan ke API, database, atau tool khusus.
+                Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan ke tool khusus.
               </p>
 
               <button>Coming Soon</button>
