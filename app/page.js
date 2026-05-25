@@ -179,12 +179,9 @@ export default function Home() {
     const ok = confirm("Hapus history chat ini?");
     if (!ok) return;
 
-    await fetch(
-      `/api/chat?session_id=${sessionId}&user_email=${user.email}`,
-      {
-        method: "DELETE"
-      }
-    );
+    await fetch(`/api/chat?session_id=${sessionId}&user_email=${user.email}`, {
+      method: "DELETE"
+    });
 
     if (activeSessionId === sessionId) {
       newChat();
@@ -290,10 +287,7 @@ export default function Home() {
     if (Array.isArray(data)) return data;
 
     if (data?.mode === "home") {
-      return [
-        ...(data?.ongoing || []),
-        ...(data?.completed || [])
-      ];
+      return [...(data?.ongoing || []), ...(data?.completed || [])];
     }
 
     if (data?.mode === "schedule") {
@@ -342,29 +336,16 @@ export default function Home() {
   function getAnimeInfo(item) {
     const episode = item?.episodes
       ? `Episode ${item.episodes}`
-      : item?.episode ||
-        item?.latest_episode ||
-        "";
+      : item?.episode || item?.latest_episode || "";
 
-    const release =
-      item?.releaseDay ||
-      item?.release_day ||
-      item?.day ||
-      "";
+    const release = item?.releaseDay || item?.release_day || item?.day || "";
 
-    const date =
-      item?.latestReleaseDate ||
-      item?.lastReleaseDate ||
-      "";
+    const date = item?.latestReleaseDate || item?.lastReleaseDate || "";
 
-    const score = item?.score
-      ? `Score ${item.score}`
-      : "";
+    const score = item?.score ? `Score ${item.score}` : "";
 
     return (
-      [episode, release, date, score]
-        .filter(Boolean)
-        .join(" • ") ||
+      [episode, release, date, score].filter(Boolean).join(" • ") ||
       item?.status ||
       item?.type ||
       "Info tidak tersedia"
@@ -409,11 +390,7 @@ export default function Home() {
   }
 
   async function openAnimeDetail(item) {
-    const animeId =
-      item?.animeId ||
-      item?.slug ||
-      item?.id ||
-      "";
+    const animeId = item?.animeId || item?.slug || item?.id || "";
 
     setSelectedAnime(item);
     setAnimeDetail(null);
@@ -453,6 +430,47 @@ export default function Home() {
   function searchLegalAnime(title) {
     const q = encodeURIComponent(`${title} legal streaming anime`);
     window.open(`https://www.google.com/search?q=${q}`, "_blank");
+  }
+
+  function getAnimeDetailData() {
+    const detail =
+      animeDetail?.detail ||
+      animeDetail?.anime ||
+      animeDetail?.data ||
+      animeDetail ||
+      selectedAnime ||
+      {};
+
+    return detail;
+  }
+
+  function renderValue(value) {
+    if (!value) return "-";
+
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === "string") return item;
+          return item?.title || item?.name || item?.genre || JSON.stringify(item);
+        })
+        .join(", ");
+    }
+
+    if (typeof value === "object") {
+      return value?.title || value?.name || JSON.stringify(value);
+    }
+
+    return value;
+  }
+
+  function getDetailEpisodes(detail) {
+    return (
+      detail?.episodeList ||
+      detail?.episodesList ||
+      detail?.episodes ||
+      detail?.episode ||
+      []
+    );
   }
 
   async function loginGoogle() {
@@ -846,9 +864,7 @@ export default function Home() {
 
                         <p className="anime-id-text">
                           ID:{" "}
-                          {selectedAnime.animeId ||
-                            selectedAnime.slug ||
-                            "-"}
+                          {selectedAnime.animeId || selectedAnime.slug || "-"}
                         </p>
 
                         <button
@@ -865,17 +881,120 @@ export default function Home() {
                       {detailLoading ? (
                         <p>Loading detail...</p>
                       ) : (
-                        <>
-                          <h3>Detail Anime</h3>
+                        (() => {
+                          const detail = getAnimeDetailData();
+                          const episodes = getDetailEpisodes(detail);
 
-                          <pre>
-                            {JSON.stringify(
-                              animeDetail || selectedAnime,
-                              null,
-                              2
-                            )}
-                          </pre>
-                        </>
+                          return (
+                            <>
+                              <h3>Detail Anime</h3>
+
+                              <div className="anime-info-grid">
+                                <div className="anime-info-card blue">
+                                  <span>Score</span>
+                                  <strong>{renderValue(detail.score)}</strong>
+                                </div>
+
+                                <div className="anime-info-card green">
+                                  <span>Status</span>
+                                  <strong>{renderValue(detail.status)}</strong>
+                                </div>
+
+                                <div className="anime-info-card purple">
+                                  <span>Type</span>
+                                  <strong>{renderValue(detail.type)}</strong>
+                                </div>
+
+                                <div className="anime-info-card orange">
+                                  <span>Duration</span>
+                                  <strong>
+                                    {renderValue(detail.duration)}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="anime-detail-section">
+                                <h4>Informasi</h4>
+
+                                <div className="anime-detail-row">
+                                  <span>Japanese</span>
+                                  <p>{renderValue(detail.japanese)}</p>
+                                </div>
+
+                                <div className="anime-detail-row">
+                                  <span>Producer</span>
+                                  <p>{renderValue(detail.producers)}</p>
+                                </div>
+
+                                <div className="anime-detail-row">
+                                  <span>Studio</span>
+                                  <p>{renderValue(detail.studios)}</p>
+                                </div>
+
+                                <div className="anime-detail-row">
+                                  <span>Released</span>
+                                  <p>
+                                    {renderValue(
+                                      detail.aired || detail.releaseDate
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="anime-detail-row">
+                                  <span>Genre</span>
+                                  <p>
+                                    {renderValue(
+                                      detail.genres || detail.genreList
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {(detail.synopsis || detail.synopsisText) && (
+                                <div className="anime-detail-section">
+                                  <h4>Sinopsis</h4>
+                                  <p className="anime-synopsis">
+                                    {renderValue(
+                                      detail.synopsis || detail.synopsisText
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+
+                              {Array.isArray(episodes) &&
+                                episodes.length > 0 && (
+                                  <div className="anime-detail-section">
+                                    <h4>Episode</h4>
+
+                                    <div className="anime-episode-list">
+                                      {episodes
+                                        .slice(0, 12)
+                                        .map((ep, index) => (
+                                          <div
+                                            className="anime-episode-item"
+                                            key={index}
+                                          >
+                                            <strong>
+                                              {ep?.title ||
+                                                ep?.episode ||
+                                                ep?.name ||
+                                                `Episode ${index + 1}`}
+                                            </strong>
+
+                                            <span>
+                                              {ep?.episodeId ||
+                                                ep?.id ||
+                                                ep?.date ||
+                                                "Episode tersedia"}
+                                            </span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
+                            </>
+                          );
+                        })()
                       )}
                     </div>
                   </div>
