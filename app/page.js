@@ -503,6 +503,7 @@ export default function Home() {
             item?.name ||
             item?.genre ||
             item?.serverName ||
+            item?.quality ||
             JSON.stringify(item)
           );
         })
@@ -510,7 +511,13 @@ export default function Home() {
     }
 
     if (typeof value === "object") {
-      return value?.title || value?.name || JSON.stringify(value);
+      return (
+        value?.title ||
+        value?.name ||
+        value?.serverName ||
+        value?.quality ||
+        JSON.stringify(value)
+      );
     }
 
     return value;
@@ -536,6 +543,57 @@ export default function Home() {
       {};
 
     return detail;
+  }
+
+  function getEpisodeServers(detail) {
+    const rawServers =
+      detail?.servers ||
+      detail?.serverList ||
+      detail?.streamingServers ||
+      detail?.server ||
+      detail?.data?.servers ||
+      [];
+
+    if (Array.isArray(rawServers)) return rawServers;
+
+    if (typeof rawServers === "object" && rawServers !== null) {
+      return Object.entries(rawServers).flatMap(([quality, servers]) => {
+        if (Array.isArray(servers)) {
+          return servers.map((server) => ({
+            ...server,
+            quality
+          }));
+        }
+
+        return [
+          {
+            quality,
+            ...servers
+          }
+        ];
+      });
+    }
+
+    return [];
+  }
+
+  function getServerName(server, index) {
+    return (
+      server?.serverName ||
+      server?.name ||
+      server?.title ||
+      server?.server ||
+      server?.quality ||
+      `Server ${index + 1}`
+    );
+  }
+
+  function getServerQuality(server) {
+    return server?.quality || server?.resolution || server?.type || "Default";
+  }
+
+  function getServerSource(server) {
+    return server?.source || server?.provider || server?.host || "otakudesu.blog";
   }
 
   async function loginGoogle() {
@@ -1050,7 +1108,7 @@ export default function Home() {
                                             </strong>
 
                                             <span>
-                                              Klik untuk lihat detail episode
+                                              Klik untuk lihat server tersedia
                                             </span>
                                           </button>
                                         ))}
@@ -1078,6 +1136,8 @@ export default function Home() {
                                   ) : (
                                     (() => {
                                       const epDetail = getEpisodeDetailData();
+                                      const servers =
+                                        getEpisodeServers(epDetail);
 
                                       return (
                                         <div className="episode-detail-content">
@@ -1109,16 +1169,48 @@ export default function Home() {
                                             )}
                                           </p>
 
-                                          <p>
-                                            <strong>Server tersedia:</strong>{" "}
-                                            {Array.isArray(epDetail.servers)
-                                              ? epDetail.servers.length
-                                              : Array.isArray(
-                                                    epDetail.serverList
+                                          <div className="episode-server-section">
+                                            <h5>Server Tersedia</h5>
+
+                                            {servers.length === 0 ? (
+                                              <p className="episode-server-empty">
+                                                Server belum tersedia dari API.
+                                              </p>
+                                            ) : (
+                                              <div className="episode-server-list">
+                                                {servers.map(
+                                                  (server, index) => (
+                                                    <div
+                                                      className="episode-server-item"
+                                                      key={index}
+                                                    >
+                                                      <div>
+                                                        <strong>
+                                                          {getServerName(
+                                                            server,
+                                                            index
+                                                          )}
+                                                        </strong>
+
+                                                        <span>
+                                                          {getServerQuality(
+                                                            server
+                                                          )}
+                                                        </span>
+                                                      </div>
+
+                                                      <small>
+                                                        Sumber:{" "}
+                                                        {getServerSource(
+                                                          server
+                                                        )}
+                                                      </small>
+                                                    </div>
                                                   )
-                                                ? epDetail.serverList.length
-                                                : "-"}
-                                          </p>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       );
                                     })()
