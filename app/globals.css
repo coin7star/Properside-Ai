@@ -1127,3 +1127,126 @@ body {
     max-height: 320px;
   }
 }
+
+.anime-info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.anime-info-card {
+  border-radius: 16px;
+  padding: 14px;
+  border: 1px solid #27272a;
+}
+
+.anime-info-card span {
+  display: block;
+  font-size: 12px;
+  color: #d4d4d8;
+  margin-bottom: 6px;
+}
+
+.anime-info-card strong {
+  font-size: 16px;
+  color: white;
+}
+
+.anime-info-card.blue {
+  background: linear-gradient(135deg, #1e3a8a, #172554);
+}
+
+.anime-info-card.green {
+  background: linear-gradient(135deg, #166534, #052e16);
+}
+
+.anime-info-card.purple {
+  background: linear-gradient(135deg, #6d28d9, #2e1065);
+}
+
+.anime-info-card.orange {
+  background: linear-gradient(135deg, #c2410c, #431407);
+}
+
+.anime-detail-section {
+  margin-top: 18px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.anime-detail-section h4 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.anime-detail-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #27272a;
+}
+
+.anime-detail-row:last-child {
+  border-bottom: none;
+}
+
+.anime-detail-row span {
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.anime-detail-row p {
+  margin: 0;
+  color: white;
+  line-height: 1.6;
+}
+
+.anime-synopsis {
+  color: #d4d4d8;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.anime-episode-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.anime-episode-item {
+  background: #0f0f11;
+  border: 1px solid #27272a;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.anime-episode-item strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.anime-episode-item span {
+  color: #a1a1aa;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+@media (max-width: 820px) {
+  .anime-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .anime-detail-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .anime-episode-list {
+    grid-template-columns: 1fr;
+  }
+}
