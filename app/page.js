@@ -161,23 +161,27 @@ function MessageContent({ text }) {
   );
 }
 
-function normalizeAnimeList(data) {
-  const possible =
-    data?.data ||
-    data?.result ||
-    data?.results ||
-    data?.anime ||
-    data?.items ||
-    data?.list ||
-    [];
+function normalizeAnimeList(response) {
+  const data = response?.data;
 
-  if (Array.isArray(possible)) return possible;
+  if (!data) return [];
 
-  if (Array.isArray(possible?.data)) return possible.data;
-  if (Array.isArray(possible?.results)) return possible.results;
-  if (Array.isArray(possible?.anime)) return possible.anime;
-  if (Array.isArray(possible?.items)) return possible.items;
-  if (Array.isArray(possible?.list)) return possible.list;
+  if (data.mode === "home") {
+    return [
+      ...(data.ongoing || []).map((item) => ({
+        ...item,
+        categoryLabel: "Ongoing"
+      })),
+      ...(data.completed || []).map((item) => ({
+        ...item,
+        categoryLabel: "Completed"
+      }))
+    ];
+  }
+
+  if (Array.isArray(data.animeList)) return data.animeList;
+  if (Array.isArray(data.schedule)) return data.schedule;
+  if (Array.isArray(data)) return data;
 
   return [];
 }
@@ -210,15 +214,15 @@ function getAnimeUrl(item) {
     item?.url ||
     item?.link ||
     item?.href ||
-    item?.watch_url ||
-    item?.episode_url ||
-    item?.detail_url ||
+    item?.animeId ||
+    item?.anime_id ||
     "#"
   );
 }
 
 function getAnimeMeta(item) {
   return (
+    item?.categoryLabel ||
     item?.episode ||
     item?.latest_episode ||
     item?.status ||
@@ -475,8 +479,8 @@ export default function Home() {
       setAnimeError("");
 
       const url = query
-        ? `/api/anime?q=${encodeURIComponent(query)}`
-        : "/api/anime";
+        ? `/api/anime?action=search&query=${encodeURIComponent(query)}`
+        : "/api/anime?action=home";
 
       const res = await fetch(url, {
         cache: "no-store"
@@ -484,13 +488,15 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (!res.ok || data?.error) {
+      if (!res.ok || data?.error || data?.success === false) {
         setAnimeError(data?.error || "Gagal mengambil data anime.");
         setAnimeList([]);
         return;
       }
 
-      setAnimeList(normalizeAnimeList(data));
+      const list = normalizeAnimeList(data);
+
+      setAnimeList(list);
     } catch {
       setAnimeError("Gagal memuat data Stream Anime.");
       setAnimeList([]);
@@ -500,7 +506,14 @@ export default function Home() {
   }
 
   function searchAnime() {
-    loadAnime(animeSearch.trim());
+    const query = animeSearch.trim();
+
+    if (!query) {
+      loadAnime();
+      return;
+    }
+
+    loadAnime(query);
   }
 
   async function loginGoogle() {
@@ -613,13 +626,8 @@ export default function Home() {
               </button>
 
               <div className="history-actions">
-                <span onClick={() => renameSession(session.id)}>
-                  ✏️
-                </span>
-
-                <span onClick={() => deleteSession(session.id)}>
-                  🗑️
-                </span>
+                <span onClick={() => renameSession(session.id)}>✏️</span>
+                <span onClick={() => deleteSession(session.id)}>🗑️</span>
               </div>
             </div>
           ))}
@@ -713,7 +721,7 @@ export default function Home() {
             <h2>Stream Anime</h2>
 
             <p>
-              Data anime dari API GitHub/project kamu ditampilkan lagi di sini.
+              Data ongoing dan completed anime dari API akan tampil di sini.
             </p>
 
             <div className="anime-search">
@@ -741,11 +749,7 @@ export default function Home() {
               {animeLoading ? "Memuat..." : "Refresh Data Anime"}
             </button>
 
-            {animeError && (
-              <p className="anime-error">
-                {animeError}
-              </p>
-            )}
+            {animeError && <p className="anime-error">{animeError}</p>}
 
             <div className="anime-grid">
               {animeLoading && (
@@ -783,7 +787,7 @@ export default function Home() {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            Buka / Tonton
+                            Buka / Detail
                           </a>
                         ) : (
                           <button disabled>Link belum ada</button>
@@ -868,9 +872,7 @@ export default function Home() {
                   <button
                     onClick={() => checkTempMail(activeTempMail)}
                     disabled={tempLoading}
-                    style={{
-                      marginTop: 10
-                    }}
+                    style={{ marginTop: 10 }}
                   >
                     {tempLoading ? "Mohon tunggu..." : "Check Inbox"}
                   </button>
@@ -916,8 +918,8 @@ export default function Home() {
           <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
 
           <p>
-            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita
-            sambungkan ke tool khusus.
+            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan
+            ke tool khusus.
           </p>
 
           <button>Coming Soon</button>
@@ -935,13 +937,11 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Login dengan Google untuk menyimpan history chat dan
-            menggunakan workspace AI.
+            Login dengan Google untuk menyimpan history chat dan menggunakan
+            workspace AI.
           </p>
 
-          <button onClick={loginGoogle}>
-            Login dengan Google
-          </button>
+          <button onClick={loginGoogle}>Login dengan Google</button>
         </div>
       </main>
     );
