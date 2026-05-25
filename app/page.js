@@ -19,6 +19,28 @@ const tools = [
   { id: "settings", name: "Settings", icon: "⚙️" }
 ];
 
+function renderInlineFormat(text, keyPrefix = "inline") {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+
+  return parts.map((part, index) => {
+    const isBold = part.startsWith("**") && part.endsWith("**");
+
+    if (isBold) {
+      return (
+        <strong key={`${keyPrefix}-${index}`}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return (
+      <span key={`${keyPrefix}-${index}`}>
+        {part}
+      </span>
+    );
+  });
+}
+
 function MessageContent({ text }) {
   if (!text) return null;
 
@@ -41,7 +63,9 @@ function MessageContent({ text }) {
 
                 <button
                   className="copy-btn"
-                  onClick={() => navigator.clipboard.writeText(code)}
+                  onClick={() =>
+                    navigator.clipboard.writeText(code)
+                  }
                 >
                   Copy
                 </button>
@@ -54,7 +78,99 @@ function MessageContent({ text }) {
           );
         }
 
-        return <p key={index}>{part}</p>;
+        const lines = part.split("\n");
+        const elements = [];
+        let listItems = [];
+        let listType = null;
+
+        const flushList = () => {
+          if (listItems.length === 0) return;
+
+          if (listType === "ol") {
+            elements.push(
+              <ol key={`ol-${index}-${elements.length}`}>
+                {listItems.map((item, i) => (
+                  <li key={`oli-${i}`}>
+                    {renderInlineFormat(
+                      item,
+                      `ol-${index}-${i}`
+                    )}
+                  </li>
+                ))}
+              </ol>
+            );
+          }
+
+          if (listType === "ul") {
+            elements.push(
+              <ul key={`ul-${index}-${elements.length}`}>
+                {listItems.map((item, i) => (
+                  <li key={`uli-${i}`}>
+                    {renderInlineFormat(
+                      item,
+                      `ul-${index}-${i}`
+                    )}
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+
+          listItems = [];
+          listType = null;
+        };
+
+        lines.forEach((rawLine, lineIndex) => {
+          const line = rawLine.trim();
+
+          if (!line) {
+            flushList();
+            return;
+          }
+
+          if (/^\d+\.\s+/.test(line)) {
+            const itemText = line.replace(/^\d+\.\s+/, "");
+
+            if (listType !== "ol") {
+              flushList();
+              listType = "ol";
+            }
+
+            listItems.push(itemText);
+            return;
+          }
+
+          if (/^[-*]\s+/.test(line)) {
+            const itemText = line.replace(/^[-*]\s+/, "");
+
+            if (listType !== "ul") {
+              flushList();
+              listType = "ul";
+            }
+
+            listItems.push(itemText);
+            return;
+          }
+
+          flushList();
+
+          elements.push(
+            <p key={`p-${index}-${lineIndex}`}>
+              {renderInlineFormat(
+                line,
+                `p-${index}-${lineIndex}`
+              )}
+            </p>
+          );
+        });
+
+        flushList();
+
+        return (
+          <div key={index} className="formatted-block">
+            {elements}
+          </div>
+        );
       })}
     </div>
   );
@@ -84,9 +200,11 @@ export default function Home() {
       setUser(data?.user || null);
     });
 
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
+    const { data } = client.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+      }
+    );
 
     return () => {
       data?.subscription?.unsubscribe();
@@ -103,7 +221,9 @@ export default function Home() {
   async function loadSessions(email) {
     try {
       const res = await fetch(
-        `/api/chat?action=sessions&user_email=${encodeURIComponent(email)}`
+        `/api/chat?action=sessions&user_email=${encodeURIComponent(
+          email
+        )}`
       );
 
       const data = await res.json();
@@ -196,7 +316,9 @@ export default function Home() {
   async function loadTempMails(email) {
     try {
       const res = await fetch(
-        `/api/tempmail?action=list&user_email=${encodeURIComponent(email)}`
+        `/api/tempmail?action=list&user_email=${encodeURIComponent(
+          email
+        )}`
       );
 
       const data = await res.json();
@@ -378,8 +500,8 @@ export default function Home() {
             <h2>Selamat Datang di Properside AI</h2>
 
             <p>
-              Pilih tool di sidebar untuk mulai menggunakan AI Chat, Tempmail,
-              dan fitur lainnya.
+              Pilih tool di sidebar untuk mulai menggunakan AI Chat,
+              Tempmail, dan fitur lainnya.
             </p>
 
             <button onClick={() => setActiveTool("chat")}>
@@ -451,8 +573,8 @@ export default function Home() {
             <h2>Tempmail Tool</h2>
 
             <p>
-              Buat banyak email sementara. Email lama tetap tersimpan dan bisa
-              dicek kembali.
+              Buat banyak email sementara. Email lama tetap tersimpan dan
+              bisa dicek kembali.
             </p>
 
             <button onClick={createTempMail} disabled={tempLoading}>
@@ -560,8 +682,8 @@ export default function Home() {
           <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
 
           <p>
-            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan
-            ke tool khusus.
+            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita
+            sambungkan ke tool khusus.
           </p>
 
           <button>Coming Soon</button>
@@ -579,11 +701,13 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Login dengan Google untuk menyimpan history chat dan menggunakan
-            workspace AI.
+            Login dengan Google untuk menyimpan history chat dan
+            menggunakan workspace AI.
           </p>
 
-          <button onClick={loginGoogle}>Login dengan Google</button>
+          <button onClick={loginGoogle}>
+            Login dengan Google
+          </button>
         </div>
       </main>
     );
@@ -606,7 +730,9 @@ export default function Home() {
             <button
               key={tool.id}
               className={
-                activeTool === tool.id ? "tool-button active" : "tool-button"
+                activeTool === tool.id
+                  ? "tool-button active"
+                  : "tool-button"
               }
               onClick={() => setActiveTool(tool.id)}
             >
@@ -642,8 +768,13 @@ export default function Home() {
                 </button>
 
                 <div className="history-actions">
-                  <span onClick={() => renameSession(session.id)}>✏️</span>
-                  <span onClick={() => deleteSession(session.id)}>🗑️</span>
+                  <span onClick={() => renameSession(session.id)}>
+                    ✏️
+                  </span>
+
+                  <span onClick={() => deleteSession(session.id)}>
+                    🗑️
+                  </span>
                 </div>
               </div>
             ))}
