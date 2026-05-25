@@ -1350,3 +1350,41 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.anime-controls {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.anime-card-title-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.anime-bookmark-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 999px;
+  background: #27272a;
+  color: #facc15;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.anime-bookmark-btn.active {
+  background: #ca8a04;
+  color: white;
+}
+
+.anime-bookmark-btn:hover {
+  background: #a16207;
+}
+
+@media (max-width: 820px) {
+  .anime-controls {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
