@@ -10,6 +10,7 @@ const tools = [
   { id: "tempmail", name: "Tempmail", icon: "📧" },
   { id: "anime", name: "Stream Anime", icon: "🎬" },
   { id: "tv", name: "Stream TV", icon: "📺" },
+  { id: "gold", name: "Cek Harga Gold", icon: "🪙" },
   { id: "image", name: "Image Tool", icon: "🖼️" },
   { id: "text", name: "Text Writer", icon: "✍️" },
   { id: "code", name: "Code Helper", icon: "💻" },
@@ -33,6 +34,27 @@ const tvChannels = [
   { value: "tvone", label: "TV One" },
   { value: "kompastv", label: "Kompas TV" },
   { value: "nettv", label: "NET TV" }
+];
+
+const goldSources = [
+  { value: "logammulia", label: "Logam Mulia" },
+  { value: "pegadaian", label: "Pegadaian" },
+  { value: "galeri24", label: "Galeri 24" },
+  { value: "indogold", label: "Indogold" },
+  { value: "lakuemas", label: "Lakuemas" },
+  { value: "treasury", label: "Treasury" },
+  { value: "bankbsi", label: "Bank BSI" },
+  { value: "brankaslm", label: "Brankas LM" },
+  { value: "anekalogam", label: "Aneka Logam" },
+  { value: "hargaemas-org", label: "HargaEmas.org" },
+  { value: "hargaemas-net", label: "HargaEmas.net" },
+  { value: "hargaemas-com", label: "HargaEmas.com" },
+  { value: "cermati", label: "Cermati" },
+  { value: "sakumas", label: "Sakumas" },
+  { value: "emasku", label: "Emasku" },
+  { value: "hartadinataabadi", label: "Hartadinata Abadi" },
+  { value: "sampoernagold", label: "Sampoerna Gold" },
+  { value: "kursdolar", label: "Kurs Dolar" }
 ];
 
 function MessageContent({ text }) {
@@ -114,6 +136,16 @@ export default function Home() {
   const [tvVersion, setTvVersion] = useState("1");
   const [tvUrl, setTvUrl] = useState("");
   const [tvKey, setTvKey] = useState(0);
+
+  const [goldSource, setGoldSource] = useState("logammulia");
+  const [goldMode, setGoldMode] = useState("latest");
+  const [goldRefresh, setGoldRefresh] = useState(false);
+  const [goldWeight, setGoldWeight] = useState("");
+  const [goldMaterialType, setGoldMaterialType] = useState("");
+  const [goldData, setGoldData] = useState([]);
+  const [goldMeta, setGoldMeta] = useState(null);
+  const [goldLoading, setGoldLoading] = useState(false);
+  const [goldError, setGoldError] = useState("");
 
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
@@ -743,8 +775,10 @@ export default function Home() {
       return;
     }
 
+    const cleanChannel = tvChannel.trim().toLowerCase();
+
     const url = `https://bintangapi.full.diskon.cloud/api/stream/TV/indonesia/?channel=${encodeURIComponent(
-      tvChannel.trim()
+      cleanChannel
     )}&v=${encodeURIComponent(tvVersion || "1")}`;
 
     setTvUrl(url);
@@ -758,6 +792,100 @@ export default function Home() {
     }
 
     window.open(tvUrl, "_blank");
+  }
+
+  function formatRupiah(value) {
+    if (!value && value !== 0) return "-";
+
+    const number = Number(value);
+
+    if (Number.isNaN(number)) return value;
+
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0
+    }).format(number);
+  }
+
+  function formatGoldDate(value) {
+    if (!value) return "-";
+
+    try {
+      return new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "medium",
+        timeStyle: String(value).includes("T") ? "short" : undefined
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  }
+
+  function normalizeGoldItems(response) {
+    const payload = response?.data;
+
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+
+    if (payload?.data && typeof payload.data === "object") {
+      return [payload.data];
+    }
+
+    return [];
+  }
+
+  async function loadGoldPrice() {
+    try {
+      setGoldLoading(true);
+      setGoldError("");
+
+      const params = new URLSearchParams({
+        source: goldSource,
+        mode: goldMode
+      });
+
+      if (goldMode === "latest" && goldRefresh) {
+        params.set("refresh", "true");
+      }
+
+      if (goldMode === "history") {
+        params.set("page", "1");
+        params.set("length", "30");
+
+        if (goldWeight.trim()) {
+          params.set("weight", goldWeight.trim());
+        }
+
+        if (goldMaterialType.trim()) {
+          params.set("materialType", goldMaterialType.trim());
+        }
+      }
+
+      const res = await fetch(`/api/gold?${params.toString()}`);
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Gagal mengambil harga gold.");
+      }
+
+      const items = normalizeGoldItems(json);
+
+      setGoldData(items);
+      setGoldMeta({
+        source: json.source,
+        mode: json.mode,
+        requestUrl: json.requestUrl,
+        timestamp: json?.data?.timestamp,
+        cached: json?.data?.cached,
+        count: json?.data?.count || items.length
+      });
+    } catch (error) {
+      setGoldData([]);
+      setGoldMeta(null);
+      setGoldError(error.message || "Gagal mengambil harga gold.");
+    } finally {
+      setGoldLoading(false);
+    }
   }
 
   async function loginGoogle() {
@@ -1077,6 +1205,13 @@ export default function Home() {
                       >
                         📺 Stream TV
                       </button>
+
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => openTool("gold")}
+                      >
+                        🪙 Cek Harga Gold
+                      </button>
                     </>
                   )}
 
@@ -1153,6 +1288,19 @@ export default function Home() {
                 <p>
                   Nonton channel TV Indonesia dari player sederhana. Pilih
                   channel dan versi stream sesuai sumber API.
+                </p>
+                <span>Buka Tool →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("gold")}
+              >
+                <div className="app-icon gold">🪙</div>
+                <h2>Cek Harga Gold</h2>
+                <p>
+                  Cek harga jual dan buyback emas dari berbagai sumber seperti
+                  Logam Mulia, Pegadaian, Galeri 24, dan lainnya.
                 </p>
                 <span>Buka Tool →</span>
               </button>
@@ -1665,8 +1813,8 @@ export default function Home() {
 
               <p>
                 Pilih channel TV Indonesia, lalu klik Load TV untuk memuat
-                player. Gunakan hanya untuk channel dan sumber yang memang legal
-                tersedia.
+                player. Kalau stream kosong, kemungkinan sumber API/channel
+                sedang offline.
               </p>
 
               <div className="tv-control-box">
@@ -1744,6 +1892,161 @@ export default function Home() {
                 <div className="tv-empty-box">
                   <h3>Belum ada channel dimuat</h3>
                   <p>Pilih channel lalu klik Load TV.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : activeTool === "gold" ? (
+          <section className="placeholder-panel">
+            <div className="placeholder-card gold-panel">
+              <div className="placeholder-icon">🪙</div>
+
+              <h2>Cek Harga Gold</h2>
+
+              <p>
+                Ambil harga emas terbaru dari Logam Mulia API. Bisa cek harga
+                terkini atau history berdasarkan source, berat, dan material
+                type.
+              </p>
+
+              <div className="gold-control-box">
+                <div className="gold-field">
+                  <label>Source</label>
+
+                  <select
+                    value={goldSource}
+                    onChange={(e) => setGoldSource(e.target.value)}
+                  >
+                    {goldSources.map((source) => (
+                      <option key={source.value} value={source.value}>
+                        {source.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="gold-field">
+                  <label>Mode</label>
+
+                  <select
+                    value={goldMode}
+                    onChange={(e) => setGoldMode(e.target.value)}
+                  >
+                    <option value="latest">Harga Terbaru</option>
+                    <option value="history">History</option>
+                  </select>
+                </div>
+
+                <button onClick={loadGoldPrice} disabled={goldLoading}>
+                  {goldLoading ? "Loading..." : "Cek Harga"}
+                </button>
+              </div>
+
+              <div className="gold-extra-box">
+                <label className="gold-check">
+                  <input
+                    type="checkbox"
+                    checked={goldRefresh}
+                    onChange={(e) => setGoldRefresh(e.target.checked)}
+                    disabled={goldMode !== "latest"}
+                  />
+                  Force refresh harga terbaru
+                </label>
+
+                {goldMode === "history" && (
+                  <div className="gold-filter-grid">
+                    <input
+                      value={goldWeight}
+                      onChange={(e) => setGoldWeight(e.target.value)}
+                      placeholder="Filter berat, contoh: 1"
+                    />
+
+                    <input
+                      value={goldMaterialType}
+                      onChange={(e) => setGoldMaterialType(e.target.value)}
+                      placeholder="Material type, contoh: ANTAM"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {goldError && <div className="gold-error-box">{goldError}</div>}
+
+              {goldMeta && (
+                <div className="gold-meta-box">
+                  <span>Source: {goldMeta.source}</span>
+                  <span>Mode: {goldMeta.mode}</span>
+                  <span>Count: {goldMeta.count}</span>
+                  <span>Cached: {goldMeta.cached ? "Ya" : "Tidak"}</span>
+                </div>
+              )}
+
+              {goldData.length === 0 && !goldLoading ? (
+                <div className="gold-empty-box">
+                  <h3>Belum ada data</h3>
+                  <p>Pilih source lalu klik Cek Harga.</p>
+                </div>
+              ) : (
+                <div className="gold-grid">
+                  {goldData.map((item, index) => (
+                    <div className="gold-card" key={index}>
+                      <div className="gold-card-head">
+                        <div>
+                          <h3>
+                            {item.displayName ||
+                              goldSources.find((s) => s.value === goldSource)
+                                ?.label ||
+                              item.source ||
+                              "Gold"}
+                          </h3>
+
+                          <p>
+                            {item.materialType || item.material || "Gold"} •{" "}
+                            {item.weight
+                              ? `${item.weight} ${item.weightUnit || "gr"}`
+                              : "-"}
+                          </p>
+                        </div>
+
+                        <span>{item.currency || "IDR"}</span>
+                      </div>
+
+                      <div className="gold-price-row">
+                        <div>
+                          <span>Harga Jual</span>
+                          <strong>{formatRupiah(item.sellPrice)}</strong>
+                        </div>
+
+                        <div>
+                          <span>Buyback</span>
+                          <strong>{formatRupiah(item.buybackPrice)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="gold-card-foot">
+                        <span>
+                          Tanggal: {formatGoldDate(item.recordedDate)}
+                        </span>
+
+                        {item.urlHomepage && (
+                          <button
+                            onClick={() =>
+                              window.open(item.urlHomepage, "_blank")
+                            }
+                          >
+                            Website
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {goldMeta?.requestUrl && (
+                <div className="gold-url-box">
+                  <span>Request URL</span>
+                  <code>{goldMeta.requestUrl}</code>
                 </div>
               )}
             </div>
