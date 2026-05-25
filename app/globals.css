@@ -2455,3 +2455,259 @@ body {
     min-height: 240px;
   }
 }
+
+/* Cek Harga Gold Tool */
+.app-icon.gold {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.gold-panel {
+  max-width: 1180px;
+}
+
+.gold-control-box {
+  display: grid;
+  grid-template-columns: 1fr 220px 180px;
+  gap: 12px;
+  align-items: end;
+  margin-top: 22px;
+}
+
+.gold-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.gold-field label {
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.gold-field select,
+.gold-filter-grid input {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid #27272a;
+  background: #0f0f11;
+  color: white;
+  padding: 0 14px;
+  outline: none;
+  font-size: 15px;
+}
+
+.gold-control-box button {
+  min-height: 52px;
+  border: none;
+  border-radius: 14px;
+  background: #d97706;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.gold-control-box button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.gold-extra-box {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.gold-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #d4d4d8;
+  font-weight: 700;
+  text-align: left;
+}
+
+.gold-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.gold-error-box {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  font-weight: 800;
+  text-align: left;
+}
+
+.gold-meta-box {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gold-meta-box span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #d4d4d8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gold-empty-box {
+  margin-top: 24px;
+  padding: 28px;
+  border: 1px dashed #3f3f46;
+  border-radius: 20px;
+  background: #0f0f11;
+}
+
+.gold-empty-box h3 {
+  margin: 0 0 8px;
+}
+
+.gold-empty-box p {
+  margin: 0;
+  color: #a1a1aa;
+}
+
+.gold-grid {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.gold-card {
+  padding: 18px;
+  border-radius: 20px;
+  background: #0f0f11;
+  border: 1px solid #27272a;
+  text-align: left;
+}
+
+.gold-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gold-card-head h3 {
+  margin: 0;
+  color: white;
+  font-size: 18px;
+}
+
+.gold-card-head p {
+  margin: 6px 0 0;
+  color: #a1a1aa;
+  font-size: 14px;
+}
+
+.gold-card-head > span {
+  height: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(217, 119, 6, 0.14);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.gold-price-row {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.gold-price-row div {
+  padding: 14px;
+  border-radius: 16px;
+  background: #18181b;
+  border: 1px solid #27272a;
+}
+
+.gold-price-row span {
+  display: block;
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.gold-price-row strong {
+  display: block;
+  margin-top: 6px;
+  color: #fbbf24;
+  font-size: 18px;
+}
+
+.gold-card-foot {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.gold-card-foot span {
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.gold-card-foot button {
+  width: auto;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #27272a;
+  color: white;
+  font-weight: 800;
+}
+
+.gold-url-box {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.gold-url-box span {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.gold-url-box code {
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #d4d4d8;
+  border-radius: 12px;
+  padding: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+  .gold-control-box,
+  .gold-filter-grid,
+  .gold-grid,
+  .gold-price-row {
+    grid-template-columns: 1fr;
+  }
+
+  .gold-card-foot {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
