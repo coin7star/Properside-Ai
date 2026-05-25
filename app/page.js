@@ -542,6 +542,7 @@ export default function Home() {
   function getProviderLabel(provider) {
     if (provider === "gemini") return "Gemini";
     if (provider === "fal") return "fal.ai";
+    if (provider === "huggingface") return "Hugging Face";
     return "Auto";
   }
 
@@ -624,7 +625,8 @@ export default function Home() {
                 {[
                   { id: "auto", name: "Auto" },
                   { id: "gemini", name: "Gemini" },
-                  { id: "fal", name: "fal.ai" }
+                  { id: "fal", name: "fal.ai" },
+                  { id: "huggingface", name: "Hugging Face" }
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -841,8 +843,8 @@ export default function Home() {
             <h2>Selamat Datang di Properside AI</h2>
 
             <p>
-              Pilih tool di menu atas untuk mulai menggunakan AI Chat,
-              AI Image, Tempmail, dan fitur lainnya.
+              Pilih tool di menu atas untuk mulai menggunakan AI Chat, AI Image,
+              Tempmail, dan fitur lainnya.
             </p>
 
             <div
