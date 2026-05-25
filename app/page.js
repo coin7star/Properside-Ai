@@ -84,6 +84,10 @@ export default function Home() {
   const [animeDetail, setAnimeDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  const [selectedEpisode, setSelectedEpisode] = useState(null);
+  const [episodeDetail, setEpisodeDetail] = useState(null);
+  const [episodeLoading, setEpisodeLoading] = useState(false);
+
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
 
@@ -394,6 +398,8 @@ export default function Home() {
 
     setSelectedAnime(item);
     setAnimeDetail(null);
+    setSelectedEpisode(null);
+    setEpisodeDetail(null);
 
     if (!animeId) {
       alert("Anime ID tidak ditemukan.");
@@ -422,9 +428,49 @@ export default function Home() {
     }
   }
 
+  async function openEpisodeDetail(ep) {
+    const episodeId = ep?.episodeId || ep?.id || ep?.slug || "";
+
+    setSelectedEpisode(ep);
+    setEpisodeDetail(null);
+
+    if (!episodeId) {
+      alert("Episode ID tidak ditemukan.");
+      return;
+    }
+
+    try {
+      setEpisodeLoading(true);
+
+      const res = await fetch(
+        `/api/anime?action=episode&episodeId=${encodeURIComponent(episodeId)}`
+      );
+
+      const json = await res.json();
+
+      if (!json.success) {
+        alert(json.error || "Gagal mengambil detail episode.");
+        return;
+      }
+
+      setEpisodeDetail(json.data?.detail || json.data || null);
+    } catch {
+      alert("Gagal mengambil detail episode.");
+    } finally {
+      setEpisodeLoading(false);
+    }
+  }
+
   function closeAnimeDetail() {
     setSelectedAnime(null);
     setAnimeDetail(null);
+    setSelectedEpisode(null);
+    setEpisodeDetail(null);
+  }
+
+  function closeEpisodeDetail() {
+    setSelectedEpisode(null);
+    setEpisodeDetail(null);
   }
 
   function searchLegalAnime(title) {
@@ -451,7 +497,14 @@ export default function Home() {
       return value
         .map((item) => {
           if (typeof item === "string") return item;
-          return item?.title || item?.name || item?.genre || JSON.stringify(item);
+
+          return (
+            item?.title ||
+            item?.name ||
+            item?.genre ||
+            item?.serverName ||
+            JSON.stringify(item)
+          );
         })
         .join(", ");
     }
@@ -471,6 +524,18 @@ export default function Home() {
       detail?.episode ||
       []
     );
+  }
+
+  function getEpisodeDetailData() {
+    const detail =
+      episodeDetail?.detail ||
+      episodeDetail?.episode ||
+      episodeDetail?.data ||
+      episodeDetail ||
+      selectedEpisode ||
+      {};
+
+    return detail;
   }
 
   async function loginGoogle() {
@@ -970,9 +1035,12 @@ export default function Home() {
                                       {episodes
                                         .slice(0, 12)
                                         .map((ep, index) => (
-                                          <div
+                                          <button
                                             className="anime-episode-item"
                                             key={index}
+                                            onClick={() =>
+                                              openEpisodeDetail(ep)
+                                            }
                                           >
                                             <strong>
                                               {ep?.title ||
@@ -982,16 +1050,81 @@ export default function Home() {
                                             </strong>
 
                                             <span>
-                                              {ep?.episodeId ||
-                                                ep?.id ||
-                                                ep?.date ||
-                                                "Episode tersedia"}
+                                              Klik untuk lihat detail episode
                                             </span>
-                                          </div>
+                                          </button>
                                         ))}
                                     </div>
                                   </div>
                                 )}
+
+                              {selectedEpisode && (
+                                <div className="episode-detail-box">
+                                  <div className="episode-detail-header">
+                                    <h4>
+                                      {selectedEpisode?.title ||
+                                        selectedEpisode?.episode ||
+                                        selectedEpisode?.name ||
+                                        "Detail Episode"}
+                                    </h4>
+
+                                    <button onClick={closeEpisodeDetail}>
+                                      Tutup
+                                    </button>
+                                  </div>
+
+                                  {episodeLoading ? (
+                                    <p>Loading episode...</p>
+                                  ) : (
+                                    (() => {
+                                      const epDetail = getEpisodeDetailData();
+
+                                      return (
+                                        <div className="episode-detail-content">
+                                          <p>
+                                            Detail episode berhasil dimuat.
+                                          </p>
+
+                                          <p>
+                                            <strong>Judul:</strong>{" "}
+                                            {renderValue(
+                                              epDetail.title ||
+                                                selectedEpisode?.title
+                                            )}
+                                          </p>
+
+                                          <p>
+                                            <strong>Episode:</strong>{" "}
+                                            {renderValue(
+                                              epDetail.episode ||
+                                                selectedEpisode?.episode
+                                            )}
+                                          </p>
+
+                                          <p>
+                                            <strong>Rilis:</strong>{" "}
+                                            {renderValue(
+                                              epDetail.releaseDate ||
+                                                epDetail.date
+                                            )}
+                                          </p>
+
+                                          <p>
+                                            <strong>Server tersedia:</strong>{" "}
+                                            {Array.isArray(epDetail.servers)
+                                              ? epDetail.servers.length
+                                              : Array.isArray(
+                                                    epDetail.serverList
+                                                  )
+                                                ? epDetail.serverList.length
+                                                : "-"}
+                                          </p>
+                                        </div>
+                                      );
+                                    })()
+                                  )}
+                                </div>
+                              )}
                             </>
                           );
                         })()
