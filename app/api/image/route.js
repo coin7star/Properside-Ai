@@ -10,6 +10,10 @@ function getFalModel() {
   return process.env.FAL_IMAGE_MODEL || "fal-ai/flux/schnell";
 }
 
+function getHuggingFaceModel() {
+  return process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.1-Krea-dev";
+}
+
 function getDefaultImageProvider() {
   return (process.env.IMAGE_PROVIDER || "auto").toLowerCase();
 }
@@ -19,6 +23,9 @@ function normalizeProvider(provider) {
 
   if (value === "gemini") return "gemini";
   if (value === "fal") return "fal";
+  if (value === "huggingface") return "huggingface";
+  if (value === "hf") return "huggingface";
+
   return "auto";
 }
 
@@ -75,6 +82,46 @@ function cleanFalError(message = "") {
   }
 
   return message || "Gagal generate gambar dari fal.ai.";
+}
+
+function cleanHuggingFaceError(message = "") {
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden") ||
+    lower.includes("token") ||
+    lower.includes("authorization") ||
+    lower.includes("permission")
+  ) {
+    return "HF_TOKEN salah, belum aktif, atau belum punya izin Inference Providers.";
+  }
+
+  if (
+    lower.includes("quota") ||
+    lower.includes("limit") ||
+    lower.includes("billing") ||
+    lower.includes("insufficient") ||
+    lower.includes("exceeded")
+  ) {
+    return "Quota / limit Hugging Face kamu habis atau belum aktif.";
+  }
+
+  if (
+    lower.includes("loading") ||
+    lower.includes("currently loading")
+  ) {
+    return "Model Hugging Face sedang loading. Coba ulang beberapa saat lagi.";
+  }
+
+  if (
+    lower.includes("not found") ||
+    lower.includes("model")
+  ) {
+    return "Model Hugging Face tidak tersedia. Coba ganti HF_IMAGE_MODEL.";
+  }
+
+  return message || "Gagal generate gambar dari Hugging Face.";
 }
 
 function isQuotaError(message = "") {
@@ -247,6 +294,85 @@ async function generateWithFal(prompt, falKey) {
   };
 }
 
+async function generateWithHuggingFace(prompt, hfToken) {
+  const model = getHuggingFaceModel();
+
+  const hfRes = await fetch(
+    `https://api-inference.huggingface.co/models/${model}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hfToken}`,
+        "Content-Type": "application/json",
+        Accept: "image/*"
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          width: 1024,
+          height: 1024,
+          num_inference_steps: 4
+        },
+        options: {
+          wait_for_model: true
+        }
+      })
+    }
+  );
+
+  const contentType = hfRes.headers.get("content-type") || "";
+
+  if (!hfRes.ok) {
+    let rawMessage = "Gagal menghubungi Hugging Face.";
+
+    try {
+      const err = await hfRes.json();
+      rawMessage =
+        err?.error ||
+        err?.message ||
+        err?.detail ||
+        JSON.stringify(err);
+    } catch {
+      rawMessage = await hfRes.text();
+    }
+
+    return {
+      success: false,
+      error: cleanHuggingFaceError(String(rawMessage)),
+      rawError: rawMessage,
+      isQuota: isQuotaError(String(rawMessage)),
+      provider: "huggingface"
+    };
+  }
+
+  if (!contentType.startsWith("image/")) {
+    let rawMessage = "Hugging Face tidak mengembalikan gambar.";
+
+    try {
+      const text = await hfRes.text();
+      rawMessage = text || rawMessage;
+    } catch {}
+
+    return {
+      success: false,
+      error: cleanHuggingFaceError(rawMessage),
+      rawError: rawMessage,
+      isQuota: false,
+      provider: "huggingface"
+    };
+  }
+
+  const buffer = await hfRes.arrayBuffer();
+
+  return {
+    success: true,
+    image: arrayBufferToBase64(buffer),
+    mimeType: contentType || "image/png",
+    text: "Gambar berhasil dibuat memakai Hugging Face.",
+    provider: "huggingface"
+  };
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -268,6 +394,7 @@ export async function POST(req) {
     const finalPrompt = prompt.trim();
     const geminiKey = process.env.GEMINI_API_KEY;
     const falKey = process.env.FAL_KEY;
+    const hfToken = process.env.HF_TOKEN;
 
     if (requestedProvider === "gemini") {
       if (!geminiKey) {
@@ -325,23 +452,51 @@ export async function POST(req) {
       );
     }
 
+    if (requestedProvider === "huggingface") {
+      if (!hfToken) {
+        return Response.json(
+          {
+            success: false,
+            error: "HF_TOKEN belum diatur di environment."
+          },
+          { status: 500 }
+        );
+      }
+
+      const hfResult = await generateWithHuggingFace(finalPrompt, hfToken);
+
+      if (hfResult.success) {
+        return Response.json(hfResult);
+      }
+
+      return Response.json(
+        {
+          success: false,
+          error: hfResult.error,
+          rawError: hfResult.rawError,
+          provider: "huggingface"
+        },
+        { status: 500 }
+      );
+    }
+
     if (geminiKey) {
       const geminiResult = await generateWithGemini(finalPrompt, geminiKey);
 
       if (geminiResult.success) {
         return Response.json(geminiResult);
       }
+    }
 
-      if (!geminiResult.isQuota || !falKey) {
-        return Response.json(
-          {
-            success: false,
-            error: geminiResult.error,
-            rawError: geminiResult.rawError,
-            provider: "gemini"
-          },
-          { status: 500 }
-        );
+    if (hfToken) {
+      const hfResult = await generateWithHuggingFace(finalPrompt, hfToken);
+
+      if (hfResult.success) {
+        return Response.json({
+          ...hfResult,
+          text:
+            "Gambar berhasil dibuat memakai Hugging Face. Mode Auto memindahkan generate ke Hugging Face."
+        });
       }
     }
 
@@ -355,23 +510,13 @@ export async function POST(req) {
             "Gambar berhasil dibuat memakai fal.ai. Mode Auto memindahkan generate ke fal.ai."
         });
       }
-
-      return Response.json(
-        {
-          success: false,
-          error: falResult.error,
-          rawError: falResult.rawError,
-          provider: "fal"
-        },
-        { status: 500 }
-      );
     }
 
     return Response.json(
       {
         success: false,
         error:
-          "Belum ada API key image. Isi GEMINI_API_KEY atau FAL_KEY di environment."
+          "Semua provider gagal atau belum ada API key image. Isi GEMINI_API_KEY, HF_TOKEN, atau FAL_KEY."
       },
       { status: 500 }
     );
