@@ -7,6 +7,7 @@ const BASE_URL =
 async function fetchAnimeApi(path) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "GET",
+    cache: "no-store",
     headers: {
       Accept: "application/json"
     }
@@ -60,7 +61,10 @@ export async function GET(req) {
 
     const action = searchParams.get("action") || "home";
     const page = searchParams.get("page") || "1";
-    const query = searchParams.get("query") || searchParams.get("q") || "";
+    const query =
+      searchParams.get("query") ||
+      searchParams.get("q") ||
+      "";
     const animeId = searchParams.get("animeId") || "";
     const serverId = searchParams.get("serverId") || "";
     const episodeId = searchParams.get("episodeId") || "";
@@ -72,9 +76,13 @@ export async function GET(req) {
     } else if (action === "schedule") {
       raw = await fetchAnimeApi("/schedule/");
     } else if (action === "ongoing") {
-      raw = await fetchAnimeApi(`/ongoing/?page=${encodeURIComponent(page)}`);
+      raw = await fetchAnimeApi(
+        `/ongoing/?page=${encodeURIComponent(page)}`
+      );
     } else if (action === "complete") {
-      raw = await fetchAnimeApi(`/complete/?page=${encodeURIComponent(page)}`);
+      raw = await fetchAnimeApi(
+        `/complete/?page=${encodeURIComponent(page)}`
+      );
     } else if (action === "search") {
       if (!query.trim()) {
         return Response.json(
