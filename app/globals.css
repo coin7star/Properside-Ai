@@ -10,3 +10,99 @@ body {
   color: white;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 720px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.45);
+}
+
+.badge {
+  display: inline-block;
+  background: #16a34a;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 6px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 36px;
+  margin: 0 0 12px;
+}
+
+.subtitle {
+  color: #a1a1aa;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  background: #27272a;
+  color: white;
+  border: 1px solid #3f3f46;
+  outline: none;
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+textarea:focus {
+  border-color: #2563eb;
+}
+
+button {
+  width: 100%;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.answer {
+  margin-top: 20px;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.answer h3 {
+  margin-top: 0;
+}
+
+.answer p {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
