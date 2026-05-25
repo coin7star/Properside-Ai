@@ -33,11 +33,7 @@ function renderInlineFormat(text, keyPrefix = "inline") {
       );
     }
 
-    return (
-      <span key={`${keyPrefix}-${index}`}>
-        {part}
-      </span>
-    );
+    return <span key={`${keyPrefix}-${index}`}>{part}</span>;
   });
 }
 
@@ -63,9 +59,7 @@ function MessageContent({ text }) {
 
                 <button
                   className="copy-btn"
-                  onClick={() =>
-                    navigator.clipboard.writeText(code)
-                  }
+                  onClick={() => navigator.clipboard.writeText(code)}
                 >
                   Copy
                 </button>
@@ -91,10 +85,7 @@ function MessageContent({ text }) {
               <ol key={`ol-${index}-${elements.length}`}>
                 {listItems.map((item, i) => (
                   <li key={`oli-${i}`}>
-                    {renderInlineFormat(
-                      item,
-                      `ol-${index}-${i}`
-                    )}
+                    {renderInlineFormat(item, `ol-${index}-${i}`)}
                   </li>
                 ))}
               </ol>
@@ -106,10 +97,7 @@ function MessageContent({ text }) {
               <ul key={`ul-${index}-${elements.length}`}>
                 {listItems.map((item, i) => (
                   <li key={`uli-${i}`}>
-                    {renderInlineFormat(
-                      item,
-                      `ul-${index}-${i}`
-                    )}
+                    {renderInlineFormat(item, `ul-${index}-${i}`)}
                   </li>
                 ))}
               </ul>
@@ -156,10 +144,7 @@ function MessageContent({ text }) {
 
           elements.push(
             <p key={`p-${index}-${lineIndex}`}>
-              {renderInlineFormat(
-                line,
-                `p-${index}-${lineIndex}`
-              )}
+              {renderInlineFormat(line, `p-${index}-${lineIndex}`)}
             </p>
           );
         });
@@ -173,6 +158,74 @@ function MessageContent({ text }) {
         );
       })}
     </div>
+  );
+}
+
+function normalizeAnimeList(data) {
+  const possible =
+    data?.data ||
+    data?.result ||
+    data?.results ||
+    data?.anime ||
+    data?.items ||
+    data?.list ||
+    [];
+
+  if (Array.isArray(possible)) return possible;
+
+  if (Array.isArray(possible?.data)) return possible.data;
+  if (Array.isArray(possible?.results)) return possible.results;
+  if (Array.isArray(possible?.anime)) return possible.anime;
+  if (Array.isArray(possible?.items)) return possible.items;
+  if (Array.isArray(possible?.list)) return possible.list;
+
+  return [];
+}
+
+function getAnimeTitle(item) {
+  return (
+    item?.title ||
+    item?.name ||
+    item?.judul ||
+    item?.anime_title ||
+    item?.episode_title ||
+    "Untitled Anime"
+  );
+}
+
+function getAnimeImage(item) {
+  return (
+    item?.image ||
+    item?.thumbnail ||
+    item?.thumb ||
+    item?.poster ||
+    item?.cover ||
+    item?.img ||
+    ""
+  );
+}
+
+function getAnimeUrl(item) {
+  return (
+    item?.url ||
+    item?.link ||
+    item?.href ||
+    item?.watch_url ||
+    item?.episode_url ||
+    item?.detail_url ||
+    "#"
+  );
+}
+
+function getAnimeMeta(item) {
+  return (
+    item?.episode ||
+    item?.latest_episode ||
+    item?.status ||
+    item?.type ||
+    item?.release ||
+    item?.updated ||
+    "Anime"
   );
 }
 
@@ -193,6 +246,11 @@ export default function Home() {
   const [tempMessages, setTempMessages] = useState([]);
   const [tempLoading, setTempLoading] = useState(false);
 
+  const [animeList, setAnimeList] = useState([]);
+  const [animeSearch, setAnimeSearch] = useState("");
+  const [animeLoading, setAnimeLoading] = useState(false);
+  const [animeError, setAnimeError] = useState("");
+
   useEffect(() => {
     const client = getSupabase();
     setSupabase(client);
@@ -201,11 +259,9 @@ export default function Home() {
       setUser(data?.user || null);
     });
 
-    const { data } = client.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-      }
-    );
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
 
     return () => {
       data?.subscription?.unsubscribe();
@@ -219,12 +275,16 @@ export default function Home() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (activeTool === "streamAnime" && animeList.length === 0) {
+      loadAnime();
+    }
+  }, [activeTool]);
+
   async function loadSessions(email) {
     try {
       const res = await fetch(
-        `/api/chat?action=sessions&user_email=${encodeURIComponent(
-          email
-        )}`
+        `/api/chat?action=sessions&user_email=${encodeURIComponent(email)}`
       );
 
       const data = await res.json();
@@ -319,9 +379,7 @@ export default function Home() {
   async function loadTempMails(email) {
     try {
       const res = await fetch(
-        `/api/tempmail?action=list&user_email=${encodeURIComponent(
-          email
-        )}`
+        `/api/tempmail?action=list&user_email=${encodeURIComponent(email)}`
       );
 
       const data = await res.json();
@@ -409,6 +467,40 @@ export default function Home() {
       msg?.description ||
       "Tidak ada isi pesan."
     );
+  }
+
+  async function loadAnime(query = "") {
+    try {
+      setAnimeLoading(true);
+      setAnimeError("");
+
+      const url = query
+        ? `/api/anime?q=${encodeURIComponent(query)}`
+        : "/api/anime";
+
+      const res = await fetch(url, {
+        cache: "no-store"
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data?.error) {
+        setAnimeError(data?.error || "Gagal mengambil data anime.");
+        setAnimeList([]);
+        return;
+      }
+
+      setAnimeList(normalizeAnimeList(data));
+    } catch {
+      setAnimeError("Gagal memuat data Stream Anime.");
+      setAnimeList([]);
+    } finally {
+      setAnimeLoading(false);
+    }
+  }
+
+  function searchAnime() {
+    loadAnime(animeSearch.trim());
   }
 
   async function loginGoogle() {
@@ -607,6 +699,100 @@ export default function Home() {
             <button onClick={sendMessage} disabled={loading}>
               {loading ? "Mengirim..." : "Kirim"}
             </button>
+          </div>
+        </section>
+      );
+    }
+
+    if (activeTool === "streamAnime") {
+      return (
+        <section className="placeholder-panel">
+          <div className="placeholder-card anime-panel">
+            <div className="placeholder-icon">🎬</div>
+
+            <h2>Stream Anime</h2>
+
+            <p>
+              Data anime dari API GitHub/project kamu ditampilkan lagi di sini.
+            </p>
+
+            <div className="anime-search">
+              <input
+                value={animeSearch}
+                onChange={(e) => setAnimeSearch(e.target.value)}
+                placeholder="Cari anime..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    searchAnime();
+                  }
+                }}
+              />
+
+              <button onClick={searchAnime} disabled={animeLoading}>
+                {animeLoading ? "Loading..." : "Cari"}
+              </button>
+            </div>
+
+            <button
+              onClick={() => loadAnime()}
+              disabled={animeLoading}
+              style={{ marginTop: 12 }}
+            >
+              {animeLoading ? "Memuat..." : "Refresh Data Anime"}
+            </button>
+
+            {animeError && (
+              <p className="anime-error">
+                {animeError}
+              </p>
+            )}
+
+            <div className="anime-grid">
+              {animeLoading && (
+                <p className="anime-empty">Sedang memuat anime...</p>
+              )}
+
+              {!animeLoading && animeList.length === 0 && !animeError && (
+                <p className="anime-empty">
+                  Belum ada data anime. Coba klik refresh.
+                </p>
+              )}
+
+              {!animeLoading &&
+                animeList.map((item, index) => {
+                  const title = getAnimeTitle(item);
+                  const image = getAnimeImage(item);
+                  const url = getAnimeUrl(item);
+                  const meta = getAnimeMeta(item);
+
+                  return (
+                    <div className="anime-card" key={index}>
+                      {image ? (
+                        <img src={image} alt={title} />
+                      ) : (
+                        <div className="anime-no-image">🎬</div>
+                      )}
+
+                      <div className="anime-info">
+                        <h3>{title}</h3>
+                        <p>{meta}</p>
+
+                        {url && url !== "#" ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Buka / Tonton
+                          </a>
+                        ) : (
+                          <button disabled>Link belum ada</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         </section>
       );
