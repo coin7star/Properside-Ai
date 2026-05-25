@@ -15,6 +15,59 @@ const tools = [
   { id: "settings", name: "Settings", icon: "⚙️" }
 ];
 
+function MessageContent({ text }) {
+  if (!text) return null;
+
+  const parts = text.split(/```/g);
+
+  return (
+    <div className="message-content">
+      {parts.map((part, index) => {
+        const isCode = index % 2 === 1;
+
+        if (isCode) {
+          const lines = part.split("\n");
+
+          const language =
+            lines[0]?.trim() || "code";
+
+          const code = lines
+            .slice(1)
+            .join("\n")
+            .trim();
+
+          return (
+            <div className="code-block" key={index}>
+              <div className="code-header">
+                <span>{language}</span>
+
+                <button
+                  className="copy-btn"
+                  onClick={() =>
+                    navigator.clipboard.writeText(code)
+                  }
+                >
+                  Copy
+                </button>
+              </div>
+
+              <pre>
+                <code>{code}</code>
+              </pre>
+            </div>
+          );
+        }
+
+        return (
+          <p key={index}>
+            {part}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
@@ -49,8 +102,12 @@ export default function Home() {
   }, [user]);
 
   async function loadSessions(email) {
-    const res = await fetch(`/api/chat?action=sessions&user_email=${email}`);
+    const res = await fetch(
+      `/api/chat?action=sessions&user_email=${email}`
+    );
+
     const data = await res.json();
+
     setSessions(data.data || []);
   }
 
@@ -131,6 +188,7 @@ export default function Home() {
     if (!supabase) return;
 
     await supabase.auth.signOut();
+
     setUser(null);
     setChats([]);
     setSessions([]);
@@ -326,7 +384,7 @@ export default function Home() {
                       : "message ai-message"
                   }
                 >
-                  <p>{chat.text}</p>
+                  <MessageContent text={chat.text} />
                 </div>
               ))}
 
