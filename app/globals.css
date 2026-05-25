@@ -839,3 +839,66 @@ body {
   font-size: 14px;
   line-height: 1.6;
 }
+
+.tempmail-panel {
+  max-width: 820px;
+}
+
+.tempmail-list {
+  margin-top: 20px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 18px;
+  padding: 14px;
+  text-align: left;
+}
+
+.tempmail-list h3 {
+  margin-top: 0;
+}
+
+.tempmail-item {
+  display: grid;
+  grid-template-columns: 1fr 44px;
+  gap: 10px;
+  align-items: center;
+  background: #0f0f11;
+  border: 1px solid #27272a;
+  border-radius: 14px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.tempmail-item.active {
+  border-color: #2563eb;
+  background: #172554;
+}
+
+.tempmail-item button {
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.tempmail-item strong {
+  display: block;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.tempmail-item small {
+  display: block;
+  margin-top: 5px;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.tempmail-item span {
+  cursor: pointer;
+  font-size: 22px;
+  text-align: center;
+}
+
+.tempmail-box {
+  margin-top: 20px;
+}
