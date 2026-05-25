@@ -80,6 +80,9 @@ export default function Home() {
   const [animeQuery, setAnimeQuery] = useState("");
   const [animePage, setAnimePage] = useState(1);
   const [animeMode, setAnimeMode] = useState("home");
+  const [selectedAnime, setSelectedAnime] = useState(null);
+  const [animeDetail, setAnimeDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
@@ -405,6 +408,53 @@ export default function Home() {
     }
   }
 
+  async function openAnimeDetail(item) {
+    const animeId =
+      item?.animeId ||
+      item?.slug ||
+      item?.id ||
+      "";
+
+    setSelectedAnime(item);
+    setAnimeDetail(null);
+
+    if (!animeId) {
+      alert("Anime ID tidak ditemukan.");
+      return;
+    }
+
+    try {
+      setDetailLoading(true);
+
+      const res = await fetch(
+        `/api/anime?action=detail&animeId=${encodeURIComponent(animeId)}`
+      );
+
+      const json = await res.json();
+
+      if (!json.success) {
+        alert(json.error || "Gagal mengambil detail anime.");
+        return;
+      }
+
+      setAnimeDetail(json.data?.detail || json.data || null);
+    } catch {
+      alert("Gagal mengambil detail anime.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function closeAnimeDetail() {
+    setSelectedAnime(null);
+    setAnimeDetail(null);
+  }
+
+  function searchLegalAnime(title) {
+    const q = encodeURIComponent(`${title} legal streaming anime`);
+    window.open(`https://www.google.com/search?q=${q}`, "_blank");
+  }
+
   async function loginGoogle() {
     if (!supabase) return;
 
@@ -697,7 +747,7 @@ export default function Home() {
 
               <p>
                 Cari anime, lihat ongoing, complete, schedule, dan daftar
-                terbaru. Mode ini hanya menampilkan katalog/info anime.
+                terbaru. Klik card untuk melihat detail anime.
               </p>
 
               <div className="anime-controls">
@@ -731,7 +781,11 @@ export default function Home() {
                     <p>Belum ada data anime.</p>
                   ) : (
                     animeItems.map((item, index) => (
-                      <div className="anime-card" key={index}>
+                      <div
+                        className="anime-card"
+                        key={index}
+                        onClick={() => openAnimeDetail(item)}
+                      >
                         {getAnimeImage(item) && (
                           <img
                             src={getAnimeImage(item)}
@@ -764,6 +818,67 @@ export default function Home() {
                   <button onClick={() => loadAnime(animeMode, animePage + 1)}>
                     Next
                   </button>
+                </div>
+              )}
+
+              {selectedAnime && (
+                <div className="anime-detail-overlay">
+                  <div className="anime-detail-card">
+                    <button
+                      className="anime-detail-close"
+                      onClick={closeAnimeDetail}
+                    >
+                      ✕
+                    </button>
+
+                    <div className="anime-detail-head">
+                      {getAnimeImage(selectedAnime) && (
+                        <img
+                          src={getAnimeImage(selectedAnime)}
+                          alt={getAnimeTitle(selectedAnime)}
+                        />
+                      )}
+
+                      <div>
+                        <h2>{getAnimeTitle(selectedAnime)}</h2>
+
+                        <p>{getAnimeInfo(selectedAnime)}</p>
+
+                        <p className="anime-id-text">
+                          ID:{" "}
+                          {selectedAnime.animeId ||
+                            selectedAnime.slug ||
+                            "-"}
+                        </p>
+
+                        <button
+                          onClick={() =>
+                            searchLegalAnime(getAnimeTitle(selectedAnime))
+                          }
+                        >
+                          Cari Tontonan Legal
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="anime-detail-body">
+                      {detailLoading ? (
+                        <p>Loading detail...</p>
+                      ) : (
+                        <>
+                          <h3>Detail Anime</h3>
+
+                          <pre>
+                            {JSON.stringify(
+                              animeDetail || selectedAnime,
+                              null,
+                              2
+                            )}
+                          </pre>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
