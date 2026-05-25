@@ -2711,3 +2711,33 @@ body {
     flex-direction: column;
   }
 }
+
+.message-content {
+  line-height: 1.8;
+}
+
+.message-content p {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-content strong {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.message-content ol,
+.message-content ul {
+  margin: 0 0 14px 20px;
+  padding-left: 18px;
+}
+
+.message-content li {
+  margin-bottom: 8px;
+  line-height: 1.8;
+}
+
+.formatted-block:last-child p:last-child {
+  margin-bottom: 0;
+}
