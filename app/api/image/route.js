@@ -1,8 +1,42 @@
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-const GEMINI_IMAGE_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
+function getGeminiImageUrl() {
+  const model =
+    process.env.GEMINI_IMAGE_MODEL ||
+    "gemini-2.5-flash-image";
+
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+function cleanGeminiError(message = "") {
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("quota") ||
+    lower.includes("exceeded") ||
+    lower.includes("limit")
+  ) {
+    return "Quota Gemini Image kamu habis / belum aktif untuk model ini. Coba cek limit di Google AI Studio atau ganti API key.";
+  }
+
+  if (
+    lower.includes("api key") ||
+    lower.includes("permission") ||
+    lower.includes("unauthorized")
+  ) {
+    return "GEMINI_API_KEY salah, belum aktif, atau tidak punya izin untuk model image.";
+  }
+
+  if (
+    lower.includes("not found") ||
+    lower.includes("model")
+  ) {
+    return "Model Gemini Image tidak tersedia untuk API key ini. Coba ganti GEMINI_IMAGE_MODEL.";
+  }
+
+  return message || "Gagal generate gambar dari Gemini.";
+}
 
 export async function POST(req) {
   try {
@@ -30,33 +64,40 @@ export async function POST(req) {
       );
     }
 
-    const geminiRes = await fetch(`${GEMINI_IMAGE_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: prompt.trim()
-              }
-            ]
-          }
-        ]
-      })
-    });
+    const geminiRes = await fetch(
+      `${getGeminiImageUrl()}?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: prompt.trim()
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
 
     const data = await geminiRes.json();
 
     if (!geminiRes.ok) {
+      const rawMessage =
+        data?.error?.message ||
+        "Gagal menghubungi Gemini API.";
+
       return Response.json(
         {
           success: false,
-          error: data?.error?.message || "Gagal menghubungi Gemini API.",
-          raw: data
+          error: cleanGeminiError(rawMessage),
+          rawError: rawMessage
         },
         { status: geminiRes.status }
       );
@@ -74,8 +115,7 @@ export async function POST(req) {
       return Response.json(
         {
           success: false,
-          error: "Gemini tidak mengembalikan gambar.",
-          raw: data
+          error: "Gemini tidak mengembalikan gambar. Coba prompt lain atau cek akses model image."
         },
         { status: 500 }
       );
@@ -91,7 +131,9 @@ export async function POST(req) {
     return Response.json(
       {
         success: false,
-        error: error.message || "Terjadi error pada route image."
+        error:
+          error?.message ||
+          "Terjadi error pada route image."
       },
       { status: 500 }
     );
