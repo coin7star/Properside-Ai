@@ -1,18 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getSupabaseAdmin() {
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diisi.");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+function normalizeMessages(data) {
+  return (
+    data?.result?.data?.messages ||
+    data?.result?.messages ||
+    data?.messages ||
+    []
   );
 }
 
 export async function GET(req) {
   try {
     const supabase = getSupabaseAdmin();
+
     const { searchParams } = new URL(req.url);
 
     const action = searchParams.get("action");
@@ -21,8 +35,12 @@ export async function GET(req) {
 
     if (!user_email) {
       return Response.json(
-        { error: "user_email wajib ada." },
-        { status: 400 }
+        {
+          error: "user_email wajib ada."
+        },
+        {
+          status: 400
+        }
       );
     }
 
@@ -31,47 +49,105 @@ export async function GET(req) {
         .from("tempmails")
         .select("*")
         .eq("user_email", user_email)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false
+        });
 
-      return Response.json({ data: data || [], error });
+      if (error) {
+        return Response.json(
+          {
+            error: error.message
+          },
+          {
+            status: 500
+          }
+        );
+      }
+
+      return Response.json({
+        data: data || []
+      });
+    }
+
+    if (action === "load") {
+      const { data, error } = await supabase
+        .from("tempmails")
+        .select("*")
+        .eq("user_email", user_email)
+        .order("created_at", {
+          ascending: false
+        })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        return Response.json(
+          {
+            error: error.message
+          },
+          {
+            status: 500
+          }
+        );
+      }
+
+      return Response.json({
+        data
+      });
     }
 
     if (action === "check") {
       if (!token) {
         return Response.json(
-          { error: "token wajib ada." },
-          { status: 400 }
+          {
+            error: "token wajib ada."
+          },
+          {
+            status: 400
+          }
         );
       }
 
-      const res = await fetch(
-        `https://bintangapi.full.diskon.cloud/api/tempmail/check/?token=${encodeURIComponent(
-          token
-        )}`
-      );
+      const apiUrl =
+        "https://bintangapi.full.diskon.cloud/api/tempmail/check/?token=" +
+        encodeURIComponent(token);
+
+      const res = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json"
+        }
+      });
 
       const data = await res.json();
 
-      const messages =
-        data?.result?.data?.messages ||
-        data?.result?.messages ||
-        data?.messages ||
-        [];
+      const messages = normalizeMessages(data);
 
       return Response.json({
-        mailbox: data?.result?.data?.mailbox || null,
+        mailbox:
+          data?.result?.data?.mailbox ||
+          data?.mailbox ||
+          null,
         messages
       });
     }
 
     return Response.json(
-      { error: "Action tidak dikenal." },
-      { status: 400 }
+      {
+        error: "Action tidak dikenal."
+      },
+      {
+        status: 400
+      }
     );
   } catch (error) {
     return Response.json(
-      { error: error.message },
-      { status: 500 }
+      {
+        error: error.message
+      },
+      {
+        status: 500
+      }
     );
   }
 }
@@ -79,26 +155,44 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const supabase = getSupabaseAdmin();
-    const { user_email } = await req.json();
+
+    const body = await req.json();
+    const user_email = body?.user_email;
 
     if (!user_email) {
       return Response.json(
-        { error: "user_email wajib ada." },
-        { status: 400 }
+        {
+          error: "user_email wajib ada."
+        },
+        {
+          status: 400
+        }
       );
     }
 
     const res = await fetch(
-      "https://bintangapi.full.diskon.cloud/api/tempmail/create/"
+      "https://bintangapi.full.diskon.cloud/api/tempmail/create/",
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json"
+        }
+      }
     );
 
     const data = await res.json();
+
     const result = data?.result?.data;
 
     if (!result?.email || !result?.email_token) {
       return Response.json(
-        { error: "Gagal membuat tempmail.", detail: data },
-        { status: 500 }
+        {
+          error: "Gagal membuat tempmail.",
+          detail: data
+        },
+        {
+          status: 500
+        }
       );
     }
 
@@ -113,14 +207,28 @@ export async function POST(req) {
       .select()
       .single();
 
+    if (error) {
+      return Response.json(
+        {
+          error: error.message
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
     return Response.json({
-      data: saved,
-      error
+      data: saved
     });
   } catch (error) {
     return Response.json(
-      { error: error.message },
-      { status: 500 }
+      {
+        error: error.message
+      },
+      {
+        status: 500
+      }
     );
   }
 }
