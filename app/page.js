@@ -62,7 +62,7 @@ export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
   const [isGuest, setIsGuest] = useState(false);
-  const [activeTool, setActiveTool] = useState("chat");
+  const [activeTool, setActiveTool] = useState("home");
 
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -128,6 +128,18 @@ export default function Home() {
       loadAnime("home", 1);
     }
   }, [activeTool]);
+
+  function openTool(toolId) {
+    setActiveTool(toolId);
+
+    if (toolId === "chat") {
+      newChat();
+    }
+
+    if (toolId === "anime") {
+      loadAnime("home", 1);
+    }
+  }
 
   async function loadSessions(email) {
     const res = await fetch(`/api/chat?action=sessions&user_email=${email}`);
@@ -603,7 +615,12 @@ export default function Home() {
   }
 
   function getServerSource(server) {
-    return server?.source || server?.provider || server?.host || "otakudesu.blog";
+    return (
+      server?.source ||
+      server?.provider ||
+      server?.host ||
+      "otakudesu.blog"
+    );
   }
 
   async function loadAnimeBookmarks(email) {
@@ -804,8 +821,8 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Login dengan Google untuk menyimpan history chat, tempmail, dan data
-            tools kamu.
+            Login dengan Google untuk menyimpan history chat, tempmail, bookmark
+            anime, dan data tools kamu.
           </p>
 
           <button onClick={loginGoogle}>Login dengan Google</button>
@@ -822,7 +839,8 @@ export default function Home() {
 
           <p className="guest-note">
             Mode Guest bisa pakai AI dan tools, tapi semua data tidak disimpan.
-            Kalau halaman direload, chat dan tempmail guest akan hilang.
+            Kalau halaman direload, chat, tempmail, dan bookmark guest akan
+            hilang.
           </p>
         </div>
       </main>
@@ -852,6 +870,16 @@ export default function Home() {
         )}
 
         <nav className="tool-list">
+          <button
+            className={
+              activeTool === "home" ? "tool-button active" : "tool-button"
+            }
+            onClick={() => setActiveTool("home")}
+          >
+            <span>🏠</span>
+            Workspace
+          </button>
+
           {tools.map((tool) => (
             <button
               key={tool.id}
@@ -917,7 +945,12 @@ export default function Home() {
       <section className="main-area">
         <header className="topbar">
           <div>
-            <h1>{tools.find((t) => t.id === activeTool)?.name}</h1>
+            <h1>
+              {activeTool === "home"
+                ? "Workspace"
+                : tools.find((t) => t.id === activeTool)?.name}
+            </h1>
+
             <p>
               {isLoggedIn
                 ? "Data kamu tersimpan otomatis di akun Google."
@@ -930,7 +963,87 @@ export default function Home() {
           </div>
         </header>
 
-        {activeTool === "chat" ? (
+        {activeTool === "home" ? (
+          <section className="workspace-home">
+            <div className="workspace-hero">
+              <div>
+                <p className="hero-badge">Properside AI Workspace</p>
+
+                <h1>Selamat Datang di Workspace!</h1>
+
+                <p>
+                  Pilih aplikasi dan tools cerdas untuk mempermudah pekerjaan,
+                  coding, email sementara, dan hiburan kamu hari ini.
+                </p>
+              </div>
+            </div>
+
+            <div className="workspace-app-grid">
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("chat")}
+              >
+                <div className="app-icon purple">💬</div>
+
+                <h2>Multi AI Chat</h2>
+
+                <p>
+                  Ngobrol dengan AI untuk coding, menulis artikel, membuat ide,
+                  atau bertanya apa saja.
+                </p>
+
+                <span>Buka Aplikasi →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("tempmail")}
+              >
+                <div className="app-icon green">✉️</div>
+
+                <h2>Temp Email</h2>
+
+                <p>
+                  Buat email sementara sekali pakai untuk daftar akun tanpa
+                  takut inbox utama penuh spam.
+                </p>
+
+                <span>Buka Alat →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("anime")}
+              >
+                <div className="app-icon orange">🎬</div>
+
+                <h2>Stream Anime</h2>
+
+                <p>
+                  Cari anime, lihat jadwal, ongoing, complete, detail episode,
+                  dan bookmark anime favorit.
+                </p>
+
+                <span>Buka Tool →</span>
+              </button>
+
+              <div className="workspace-app-card disabled">
+                <div className="soon-label">Segera Hadir</div>
+
+                <div className="app-icon gray">🧮</div>
+
+                <h2>Kalkulator Pintar</h2>
+
+                <p>
+                  Aplikasi utilitas perhitungan unik untuk kebutuhan harian,
+                  trading, dan produktivitas.
+                </p>
+
+                <span>Coming Soon</span>
+              </div>
+            </div>
+          </section>
+        ) : activeTool === "chat" ? (
           <section className="chat-panel">
             <div className="chat-box">
               {chats.length === 0 && (
@@ -1009,9 +1122,7 @@ export default function Home() {
                   Complete
                 </button>
 
-                <button onClick={showBookmarkedAnime}>
-                  Bookmark
-                </button>
+                <button onClick={showBookmarkedAnime}>Bookmark</button>
               </div>
 
               <div className="anime-search">
