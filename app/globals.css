@@ -782,3 +782,47 @@ body {
     font-size: 24px;
   }
 }
+
+.tempmail-box {
+  margin-top: 20px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.tempmail-email {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  background: #0f0f11;
+  border: 1px solid #3f3f46;
+  border-radius: 12px;
+  padding: 14px;
+  word-break: break-word;
+  font-size: 14px;
+}
+
+.tempmail-messages {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tempmail-message {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: left;
+}
+
+.tempmail-message h4 {
+  margin-top: 0;
+}
+
+.tempmail-content {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
