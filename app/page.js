@@ -874,7 +874,6 @@ export default function Home() {
       setGoldMeta({
         source: json.source,
         mode: json.mode,
-        requestUrl: json.requestUrl,
         timestamp: json?.data?.timestamp,
         cached: json?.data?.cached,
         count: json?.data?.count || items.length
@@ -2040,13 +2039,6 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {goldMeta?.requestUrl && (
-                <div className="gold-url-box">
-                  <span>Request URL</span>
-                  <code>{goldMeta.requestUrl}</code>
                 </div>
               )}
             </div>
