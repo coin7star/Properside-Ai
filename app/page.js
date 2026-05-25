@@ -8,7 +8,7 @@ import { getSupabase } from "./utils/supabaseClient";
 const tools = [
   { id: "chat", name: "AI Chat", icon: "💬" },
   { id: "tempmail", name: "Tempmail", icon: "📧" },
-  { id: "anime", name: "STREAM ANIME", icon: "🎬" },
+  { id: "anime", name: "Stream Anime", icon: "🎬" },
   { id: "image", name: "Image Tool", icon: "🖼️" },
   { id: "text", name: "Text Writer", icon: "✍️" },
   { id: "code", name: "Code Helper", icon: "💻" },
@@ -88,6 +88,9 @@ export default function Home() {
   const [episodeDetail, setEpisodeDetail] = useState(null);
   const [episodeLoading, setEpisodeLoading] = useState(false);
 
+  const [animeBookmarks, setAnimeBookmarks] = useState([]);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
 
@@ -116,6 +119,7 @@ export default function Home() {
     if (user?.email) {
       loadSessions(user.email);
       loadTempMails(user.email);
+      loadAnimeBookmarks(user.email);
     }
   }, [user]);
 
@@ -314,6 +318,10 @@ export default function Home() {
     );
   }
 
+  function getAnimeId(item) {
+    return item?.animeId || item?.slug || item?.id || item?.anime_id || "";
+  }
+
   function getAnimeTitle(item) {
     return (
       item?.title ||
@@ -338,6 +346,8 @@ export default function Home() {
   }
 
   function getAnimeInfo(item) {
+    if (item?.info) return item.info;
+
     const episode = item?.episodes
       ? `Episode ${item.episodes}`
       : item?.episode || item?.latest_episode || "";
@@ -394,7 +404,7 @@ export default function Home() {
   }
 
   async function openAnimeDetail(item) {
-    const animeId = item?.animeId || item?.slug || item?.id || "";
+    const animeId = getAnimeId(item);
 
     setSelectedAnime(item);
     setAnimeDetail(null);
@@ -596,6 +606,97 @@ export default function Home() {
     return server?.source || server?.provider || server?.host || "otakudesu.blog";
   }
 
+  async function loadAnimeBookmarks(email) {
+    if (!email) return;
+
+    try {
+      const res = await fetch(
+        `/api/bookmarks?user_email=${encodeURIComponent(email)}`
+      );
+
+      const data = await res.json();
+
+      setAnimeBookmarks(data?.data || []);
+    } catch {
+      console.log("Gagal load bookmark anime.");
+    }
+  }
+
+  function isAnimeBookmarked(item) {
+    const animeId = getAnimeId(item);
+
+    return animeBookmarks.some((bookmark) => bookmark.anime_id === animeId);
+  }
+
+  async function toggleAnimeBookmark(item, event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!user?.email) {
+      alert("Login Google dulu untuk menyimpan bookmark anime.");
+      return;
+    }
+
+    const animeId = getAnimeId(item);
+
+    if (!animeId) {
+      alert("Anime ID tidak ditemukan.");
+      return;
+    }
+
+    try {
+      setBookmarkLoading(true);
+
+      const bookmarked = isAnimeBookmarked(item);
+
+      if (bookmarked) {
+        await fetch(
+          `/api/bookmarks?user_email=${encodeURIComponent(
+            user.email
+          )}&anime_id=${encodeURIComponent(animeId)}`,
+          {
+            method: "DELETE"
+          }
+        );
+      } else {
+        await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_email: user.email,
+            anime: {
+              anime_id: animeId,
+              title: getAnimeTitle(item),
+              poster: getAnimeImage(item),
+              info: getAnimeInfo(item)
+            }
+          })
+        });
+      }
+
+      loadAnimeBookmarks(user.email);
+    } catch {
+      alert("Gagal update bookmark.");
+    } finally {
+      setBookmarkLoading(false);
+    }
+  }
+
+  function showBookmarkedAnime() {
+    const list = animeBookmarks.map((bookmark) => ({
+      title: bookmark.title,
+      poster: bookmark.poster,
+      animeId: bookmark.anime_id,
+      info: bookmark.info
+    }));
+
+    setAnimeMode("bookmark");
+    setAnimeItems(list);
+  }
+
   async function loginGoogle() {
     if (!supabase) return;
 
@@ -616,6 +717,7 @@ export default function Home() {
     setTempMails([]);
     setActiveTempMail(null);
     setTempMessages([]);
+    setAnimeBookmarks([]);
   }
 
   async function logout() {
@@ -631,6 +733,7 @@ export default function Home() {
     setTempMails([]);
     setActiveTempMail(null);
     setTempMessages([]);
+    setAnimeBookmarks([]);
   }
 
   async function sendMessage() {
@@ -884,7 +987,7 @@ export default function Home() {
             <div className="placeholder-card anime-panel">
               <div className="placeholder-icon">🎬</div>
 
-              <h2>STREAM ANIME</h2>
+              <h2>Stream Anime</h2>
 
               <p>
                 Cari anime, lihat ongoing, complete, schedule, dan daftar
@@ -893,14 +996,21 @@ export default function Home() {
 
               <div className="anime-controls">
                 <button onClick={() => loadAnime("home", 1)}>Home</button>
+
                 <button onClick={() => loadAnime("schedule", 1)}>
                   Schedule
                 </button>
+
                 <button onClick={() => loadAnime("ongoing", 1)}>
                   Ongoing
                 </button>
+
                 <button onClick={() => loadAnime("complete", 1)}>
                   Complete
+                </button>
+
+                <button onClick={showBookmarkedAnime}>
+                  Bookmark
                 </button>
               </div>
 
@@ -919,7 +1029,11 @@ export default function Home() {
               ) : (
                 <div className="anime-grid">
                   {animeItems.length === 0 ? (
-                    <p>Belum ada data anime.</p>
+                    <p>
+                      {animeMode === "bookmark"
+                        ? "Belum ada anime yang dibookmark."
+                        : "Belum ada data anime."}
+                    </p>
                   ) : (
                     animeItems.map((item, index) => (
                       <div
@@ -935,7 +1049,29 @@ export default function Home() {
                         )}
 
                         <div className="anime-card-body">
-                          <h3>{getAnimeTitle(item)}</h3>
+                          <div className="anime-card-title-row">
+                            <h3>{getAnimeTitle(item)}</h3>
+
+                            <button
+                              className={
+                                isAnimeBookmarked(item)
+                                  ? "anime-bookmark-btn active"
+                                  : "anime-bookmark-btn"
+                              }
+                              onClick={(event) =>
+                                toggleAnimeBookmark(item, event)
+                              }
+                              disabled={bookmarkLoading}
+                              title={
+                                isLoggedIn
+                                  ? "Bookmark anime"
+                                  : "Login Google untuk bookmark"
+                              }
+                            >
+                              {isAnimeBookmarked(item) ? "★" : "☆"}
+                            </button>
+                          </div>
+
                           <p>{getAnimeInfo(item)}</p>
                         </div>
                       </div>
@@ -996,6 +1132,22 @@ export default function Home() {
                           }
                         >
                           Cari Tontonan Legal
+                        </button>
+
+                        <button
+                          onClick={(event) =>
+                            toggleAnimeBookmark(selectedAnime, event)
+                          }
+                          style={{
+                            marginTop: 10,
+                            background: isAnimeBookmarked(selectedAnime)
+                              ? "#ca8a04"
+                              : "#27272a"
+                          }}
+                        >
+                          {isAnimeBookmarked(selectedAnime)
+                            ? "★ Sudah Bookmark"
+                            : "☆ Bookmark Anime"}
                         </button>
                       </div>
                     </div>
