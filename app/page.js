@@ -92,6 +92,7 @@ export default function Home() {
   useEffect(() => {
     if (user?.email) {
       loadSessions(user.email);
+      loadTempMail(user.email);
     }
   }, [user]);
 
@@ -161,19 +162,54 @@ export default function Home() {
     loadSessions(user.email);
   }
 
-  async function createTempMail() {
+  async function loadTempMail(email) {
     try {
-      setTempLoading(true);
-
       const res = await fetch(
-        "https://bintangapi.full.diskon.cloud/api/tempmail/create/"
+        `/api/tempmail?action=load&user_email=${encodeURIComponent(email)}`
       );
 
       const data = await res.json();
 
-      if (data?.result?.data) {
-        setTempMail(data.result.data);
+      if (data?.data) {
+        setTempMail({
+          email: data.data.email,
+          email_token: data.data.email_token,
+          deleted_in: data.data.deleted_in
+        });
+      }
+    } catch {
+      console.log("Gagal load tempmail.");
+    }
+  }
+
+  async function createTempMail() {
+    if (!user?.email) return;
+
+    try {
+      setTempLoading(true);
+
+      const res = await fetch("/api/tempmail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_email: user.email
+        })
+      });
+
+      const data = await res.json();
+
+      if (data?.data) {
+        setTempMail({
+          email: data.data.email,
+          email_token: data.data.email_token,
+          deleted_in: data.data.deleted_in
+        });
+
         setTempMessages([]);
+      } else {
+        alert(data?.error || "Gagal membuat tempmail.");
       }
     } catch {
       alert("Gagal membuat tempmail.");
@@ -183,23 +219,39 @@ export default function Home() {
   }
 
   async function checkTempMail() {
-    if (!tempMail?.email_token) return;
+    if (!tempMail?.email_token || !user?.email) return;
 
     try {
       setTempLoading(true);
 
       const res = await fetch(
-        `https://bintangapi.full.diskon.cloud/api/tempmail/check/?token=${tempMail.email_token}`
+        `/api/tempmail?action=check&user_email=${encodeURIComponent(
+          user.email
+        )}&token=${encodeURIComponent(tempMail.email_token)}`
       );
 
       const data = await res.json();
 
-      setTempMessages(data?.result?.data?.messages || []);
+      setTempMessages(data?.messages || []);
     } catch {
       alert("Gagal check inbox.");
     } finally {
       setTempLoading(false);
     }
+  }
+
+  function getMailBody(msg) {
+    return (
+      msg?.body ||
+      msg?.text ||
+      msg?.html ||
+      msg?.content ||
+      msg?.message ||
+      msg?.message_text ||
+      msg?.message_html ||
+      msg?.description ||
+      "Tidak ada isi pesan."
+    );
   }
 
   async function loginGoogle() {
@@ -221,6 +273,8 @@ export default function Home() {
     setChats([]);
     setSessions([]);
     setActiveSessionId(null);
+    setTempMail(null);
+    setTempMessages([]);
   }
 
   async function sendMessage() {
@@ -433,7 +487,10 @@ export default function Home() {
 
               <h2>Tempmail Tool</h2>
 
-              <p>Buat email sementara dan cek inbox langsung dari workspace.</p>
+              <p>
+                Buat email sementara dan cek inbox langsung dari workspace.
+                Email akan tersimpan di akun Google kamu.
+              </p>
 
               {!tempMail ? (
                 <button onClick={createTempMail}>
@@ -472,11 +529,18 @@ export default function Home() {
                     ) : (
                       tempMessages.map((msg, index) => (
                         <div key={index} className="tempmail-message">
-                          <h4>{msg.subject || "No Subject"}</h4>
-                          <p>From: {msg.from}</p>
+                          <h4>{msg.subject || msg.title || "No Subject"}</h4>
+
+                          <p>
+                            From:{" "}
+                            {msg.from ||
+                              msg.sender ||
+                              msg.from_email ||
+                              "Unknown"}
+                          </p>
 
                           <div className="tempmail-content">
-                            {msg.body || "Tidak ada isi pesan."}
+                            {getMailBody(msg)}
                           </div>
                         </div>
                       ))
