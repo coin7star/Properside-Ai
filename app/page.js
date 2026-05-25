@@ -501,15 +501,14 @@ export default function Home() {
   }
 
   function getAnimeDetailData() {
-    const detail =
+    return (
       animeDetail?.detail ||
       animeDetail?.anime ||
       animeDetail?.data ||
       animeDetail ||
       selectedAnime ||
-      {};
-
-    return detail;
+      {}
+    );
   }
 
   function renderValue(value) {
@@ -556,15 +555,14 @@ export default function Home() {
   }
 
   function getEpisodeDetailData() {
-    const detail =
+    return (
       episodeDetail?.detail ||
       episodeDetail?.episode ||
       episodeDetail?.data ||
       episodeDetail ||
       selectedEpisode ||
-      {};
-
-    return detail;
+      {}
+    );
   }
 
   function getEpisodeServers(detail) {
@@ -877,7 +875,7 @@ export default function Home() {
             onClick={() => setActiveTool("home")}
           >
             <span>🏠</span>
-            Workspace
+            Beranda
           </button>
 
           {tools.map((tool) => (
@@ -947,7 +945,7 @@ export default function Home() {
           <div>
             <h1>
               {activeTool === "home"
-                ? "Workspace"
+                ? "Beranda"
                 : tools.find((t) => t.id === activeTool)?.name}
             </h1>
 
@@ -967,7 +965,7 @@ export default function Home() {
           <section className="workspace-home">
             <div className="workspace-hero">
               <div>
-                <p className="hero-badge">Properside AI Workspace</p>
+                <p className="hero-badge">TheProperSide Workspace</p>
 
                 <h1>Selamat Datang di Workspace!</h1>
 
