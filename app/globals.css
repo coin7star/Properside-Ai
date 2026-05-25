@@ -468,3 +468,69 @@ button:disabled {
 .history-actions span {
   font-size: 14px;
 }
+
+.message-content p {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.code-block {
+  width: 100%;
+  max-width: 620px;
+  margin: 14px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #3f3f46;
+  background: #0f0f11;
+}
+
+.code-header {
+  min-height: 42px;
+  background: #18181b;
+  border-bottom: 1px solid #27272a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+}
+
+.code-header span {
+  font-size: 13px;
+  color: #a1a1aa;
+  text-transform: lowercase;
+}
+
+.copy-btn {
+  width: auto;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: #27272a;
+  color: white;
+  font-size: 12px;
+}
+
+.copy-btn:hover {
+  background: #3f3f46;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+.code-block code {
+  font-family:
+    Consolas,
+    Monaco,
+    "Courier New",
+    monospace;
+
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre;
+  color: #e4e4e7;
+}
