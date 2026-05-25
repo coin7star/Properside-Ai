@@ -25,26 +25,26 @@ function normalizeMessages(data) {
 
 export async function GET(req) {
   try {
-    const supabase = getSupabaseAdmin();
-
     const { searchParams } = new URL(req.url);
 
     const action = searchParams.get("action");
     const user_email = searchParams.get("user_email");
     const token = searchParams.get("token");
 
-    if (!user_email) {
-      return Response.json(
-        {
-          error: "user_email wajib ada."
-        },
-        {
-          status: 400
-        }
-      );
-    }
-
     if (action === "list") {
+      if (!user_email) {
+        return Response.json(
+          {
+            error: "user_email wajib ada."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      const supabase = getSupabaseAdmin();
+
       const { data, error } = await supabase
         .from("tempmails")
         .select("*")
@@ -66,33 +66,6 @@ export async function GET(req) {
 
       return Response.json({
         data: data || []
-      });
-    }
-
-    if (action === "load") {
-      const { data, error } = await supabase
-        .from("tempmails")
-        .select("*")
-        .eq("user_email", user_email)
-        .order("created_at", {
-          ascending: false
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        return Response.json(
-          {
-            error: error.message
-          },
-          {
-            status: 500
-          }
-        );
-      }
-
-      return Response.json({
-        data
       });
     }
 
@@ -154,21 +127,8 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const supabase = getSupabaseAdmin();
-
     const body = await req.json();
-    const user_email = body?.user_email;
-
-    if (!user_email) {
-      return Response.json(
-        {
-          error: "user_email wajib ada."
-        },
-        {
-          status: 400
-        }
-      );
-    }
+    const user_email = body?.user_email || null;
 
     const res = await fetch(
       "https://bintangapi.full.diskon.cloud/api/tempmail/create/",
@@ -195,6 +155,21 @@ export async function POST(req) {
         }
       );
     }
+
+    if (!user_email) {
+      return Response.json({
+        data: {
+          id: crypto.randomUUID(),
+          user_email: null,
+          email: result.email,
+          email_token: result.email_token,
+          deleted_in: result.deleted_in || null,
+          guest: true
+        }
+      });
+    }
+
+    const supabase = getSupabaseAdmin();
 
     const { data: saved, error } = await supabase
       .from("tempmails")
