@@ -846,7 +846,7 @@ export default function Home() {
   }
 
   return (
-    <main className="workspace">
+    <main className={activeTool === "home" ? "workspace home-mode" : "workspace"}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand-logo small">P</div>
@@ -983,7 +983,7 @@ export default function Home() {
               >
                 <div className="app-icon purple">💬</div>
 
-                <h2>Multi AI Chat</h2>
+                <h2>AI Chat</h2>
 
                 <p>
                   Ngobrol dengan AI untuk coding, menulis artikel, membuat ide,
@@ -997,9 +997,9 @@ export default function Home() {
                 className="workspace-app-card"
                 onClick={() => openTool("tempmail")}
               >
-                <div className="app-icon green">✉️</div>
+                <div className="app-icon green">📧</div>
 
-                <h2>Temp Email</h2>
+                <h2>Tempmail</h2>
 
                 <p>
                   Buat email sementara sekali pakai untuk daftar akun tanpa
@@ -1025,20 +1025,85 @@ export default function Home() {
                 <span>Buka Tool →</span>
               </button>
 
-              <div className="workspace-app-card disabled">
-                <div className="soon-label">Segera Hadir</div>
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("image")}
+              >
+                <div className="app-icon cyan">🖼️</div>
 
-                <div className="app-icon gray">🧮</div>
-
-                <h2>Kalkulator Pintar</h2>
+                <h2>Image Tool</h2>
 
                 <p>
-                  Aplikasi utilitas perhitungan unik untuk kebutuhan harian,
-                  trading, dan produktivitas.
+                  Menu image sudah disiapkan untuk nanti disambungkan ke fitur
+                  gambar.
                 </p>
 
-                <span>Coming Soon</span>
-              </div>
+                <span>Buka Menu →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("text")}
+              >
+                <div className="app-icon pink">✍️</div>
+
+                <h2>Text Writer</h2>
+
+                <p>
+                  Menu penulis teks untuk artikel, caption, ide konten, dan
+                  tulisan lainnya.
+                </p>
+
+                <span>Buka Menu →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("code")}
+              >
+                <div className="app-icon blue">💻</div>
+
+                <h2>Code Helper</h2>
+
+                <p>
+                  Menu bantuan coding untuk project web, bug fixing, dan
+                  pengembangan fitur.
+                </p>
+
+                <span>Buka Menu →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("translate")}
+              >
+                <div className="app-icon teal">🌐</div>
+
+                <h2>Translate</h2>
+
+                <p>
+                  Menu translate untuk kebutuhan bahasa, ringkasan, dan
+                  pemahaman teks.
+                </p>
+
+                <span>Buka Menu →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("summary")}
+              >
+                <div className="app-icon gray">📄</div>
+
+                <h2>Summarizer</h2>
+
+                <p>
+                  Menu ringkasan untuk merangkum artikel, catatan, dokumen, dan
+                  teks panjang.
+                </p>
+
+                <span>Buka Menu →</span>
+              </button>
             </div>
           </section>
         ) : activeTool === "chat" ? (
@@ -1107,19 +1172,15 @@ export default function Home() {
 
               <div className="anime-controls">
                 <button onClick={() => loadAnime("home", 1)}>Home</button>
-
                 <button onClick={() => loadAnime("schedule", 1)}>
                   Schedule
                 </button>
-
                 <button onClick={() => loadAnime("ongoing", 1)}>
                   Ongoing
                 </button>
-
                 <button onClick={() => loadAnime("complete", 1)}>
                   Complete
                 </button>
-
                 <button onClick={showBookmarkedAnime}>Bookmark</button>
               </div>
 
@@ -1227,7 +1288,6 @@ export default function Home() {
 
                       <div>
                         <h2>{getAnimeTitle(selectedAnime)}</h2>
-
                         <p>{getAnimeInfo(selectedAnime)}</p>
 
                         <p className="anime-id-text">
