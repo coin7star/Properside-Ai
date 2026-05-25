@@ -1,77 +1,170 @@
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 function getSupabaseAdmin() {
-  return createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("SUPABASE_URL atau SUPABASE_SERVICE_ROLE_KEY belum diisi.");
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+function getGroqKey() {
+  const groqApiKey = process.env.GROQ_API_KEY;
+
+  if (!groqApiKey) {
+    throw new Error("GROQ_API_KEY belum diisi.");
+  }
+
+  return groqApiKey;
 }
 
 export async function GET(req) {
-  const supabase = getSupabaseAdmin();
-  const { searchParams } = new URL(req.url);
+  try {
+    const supabase = getSupabaseAdmin();
 
-  const action = searchParams.get("action");
-  const user_email = searchParams.get("user_email");
-  const session_id = searchParams.get("session_id");
+    const { searchParams } = new URL(req.url);
 
-  if (!user_email) {
-    return Response.json({ error: "user_email wajib ada." }, { status: 400 });
+    const action = searchParams.get("action");
+    const user_email = searchParams.get("user_email");
+    const session_id = searchParams.get("session_id");
+
+    if (!user_email) {
+      return Response.json(
+        {
+          error: "user_email wajib ada."
+        },
+        {
+          status: 400
+        }
+      );
+    }
+
+    if (action === "sessions") {
+      const { data, error } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .eq("user_email", user_email)
+        .order("created_at", {
+          ascending: false
+        });
+
+      if (error) {
+        return Response.json(
+          {
+            error: error.message
+          },
+          {
+            status: 500
+          }
+        );
+      }
+
+      return Response.json({
+        data: data || []
+      });
+    }
+
+    if (action === "messages") {
+      if (!session_id) {
+        return Response.json(
+          {
+            error: "session_id wajib ada."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("user_email", user_email)
+        .eq("session_id", session_id)
+        .order("created_at", {
+          ascending: true
+        });
+
+      if (error) {
+        return Response.json(
+          {
+            error: error.message
+          },
+          {
+            status: 500
+          }
+        );
+      }
+
+      return Response.json({
+        data: data || []
+      });
+    }
+
+    return Response.json(
+      {
+        error: "Action tidak dikenal."
+      },
+      {
+        status: 400
+      }
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error: error.message
+      },
+      {
+        status: 500
+      }
+    );
   }
-
-  if (action === "sessions") {
-    const { data, error } = await supabase
-      .from("chat_sessions")
-      .select("*")
-      .eq("user_email", user_email)
-      .order("created_at", { ascending: false });
-
-    return Response.json({ data, error });
-  }
-
-  if (action === "messages") {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("user_email", user_email)
-      .eq("session_id", session_id)
-      .order("created_at", { ascending: true });
-
-    return Response.json({ data, error });
-  }
-
-  return Response.json({ error: "Action tidak dikenal." }, { status: 400 });
 }
 
 export async function POST(req) {
   try {
+    const supabase = getSupabaseAdmin();
+    const groqApiKey = getGroqKey();
+
     const body = await req.json();
 
     const message = body?.message;
     const user_email = body?.user_email;
-    let session_id = body?.session_id;
+    let session_id = body?.session_id || null;
 
     if (!user_email) {
-      return Response.json({ reply: "User belum login." }, { status: 401 });
+      return Response.json(
+        {
+          reply: "User belum login."
+        },
+        {
+          status: 401
+        }
+      );
     }
 
     if (!message || !message.trim()) {
-      return Response.json({ reply: "Pesan kosong." }, { status: 400 });
-    }
-
-    const groqApiKey = process.env.GROQ_API_KEY;
-    const supabase = getSupabaseAdmin();
-
-    if (!groqApiKey) {
-      return Response.json({ reply: "GROQ_API_KEY belum diisi." });
+      return Response.json(
+        {
+          reply: "Pesan kosong."
+        },
+        {
+          status: 400
+        }
+      );
     }
 
     if (!session_id) {
       const title =
-        message.length > 35 ? message.slice(0, 35) + "..." : message;
+        message.length > 35
+          ? message.slice(0, 35) + "..."
+          : message;
 
       const { data: sessionData, error: sessionError } = await supabase
         .from("chat_sessions")
@@ -83,28 +176,49 @@ export async function POST(req) {
         .single();
 
       if (sessionError) {
-        return Response.json({
-          reply: "Gagal membuat session chat.",
-          detail: sessionError.message
-        });
+        return Response.json(
+          {
+            reply: "Gagal membuat session chat.",
+            detail: sessionError.message
+          },
+          {
+            status: 500
+          }
+        );
       }
 
       session_id = sessionData.id;
     }
 
-    await supabase.from("chat_messages").insert({
-      session_id,
-      user_email,
-      role: "user",
-      content: message
-    });
+    const { error: userMessageError } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id,
+        user_email,
+        role: "user",
+        content: message
+      });
+
+    if (userMessageError) {
+      return Response.json(
+        {
+          reply: "Gagal menyimpan pesan user.",
+          detail: userMessageError.message
+        },
+        {
+          status: 500
+        }
+      );
+    }
 
     const { data: oldMessages } = await supabase
       .from("chat_messages")
       .select("role, content")
       .eq("session_id", session_id)
       .eq("user_email", user_email)
-      .order("created_at", { ascending: true })
+      .order("created_at", {
+        ascending: true
+      })
       .limit(20);
 
     const groqMessages = [
@@ -135,25 +249,36 @@ export async function POST(req) {
       }
     );
 
-    const data = await groqResponse.json();
+    const groqData = await groqResponse.json();
 
     if (!groqResponse.ok) {
-      return Response.json({
-        reply: "Groq API error.",
-        detail: data
-      });
+      return Response.json(
+        {
+          reply: "Groq API error.",
+          detail: groqData
+        },
+        {
+          status: 500
+        }
+      );
     }
 
     const aiText =
-      data?.choices?.[0]?.message?.content ||
+      groqData?.choices?.[0]?.message?.content ||
       "AI tidak memberikan jawaban.";
 
-    await supabase.from("chat_messages").insert({
-      session_id,
-      user_email,
-      role: "ai",
-      content: aiText
-    });
+    const { error: aiMessageError } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id,
+        user_email,
+        role: "ai",
+        content: aiText
+      });
+
+    if (aiMessageError) {
+      console.log("Gagal simpan jawaban AI:", aiMessageError.message);
+    }
 
     return Response.json({
       reply: aiText,
@@ -172,38 +297,112 @@ export async function POST(req) {
 }
 
 export async function PATCH(req) {
-  const supabase = getSupabaseAdmin();
-  const { session_id, user_email, title } = await req.json();
+  try {
+    const supabase = getSupabaseAdmin();
 
-  if (!session_id || !user_email || !title) {
-    return Response.json({ error: "Data rename belum lengkap." }, { status: 400 });
+    const body = await req.json();
+
+    const session_id = body?.session_id;
+    const user_email = body?.user_email;
+    const title = body?.title;
+
+    if (!session_id || !user_email || !title) {
+      return Response.json(
+        {
+          error: "Data rename belum lengkap."
+        },
+        {
+          status: 400
+        }
+      );
+    }
+
+    const { error } = await supabase
+      .from("chat_sessions")
+      .update({
+        title
+      })
+      .eq("id", session_id)
+      .eq("user_email", user_email);
+
+    if (error) {
+      return Response.json(
+        {
+          success: false,
+          error: error.message
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
+    return Response.json({
+      success: true
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        error: error.message
+      },
+      {
+        status: 500
+      }
+    );
   }
-
-  const { error } = await supabase
-    .from("chat_sessions")
-    .update({ title })
-    .eq("id", session_id)
-    .eq("user_email", user_email);
-
-  return Response.json({ success: !error, error });
 }
 
 export async function DELETE(req) {
-  const supabase = getSupabaseAdmin();
-  const { searchParams } = new URL(req.url);
+  try {
+    const supabase = getSupabaseAdmin();
 
-  const session_id = searchParams.get("session_id");
-  const user_email = searchParams.get("user_email");
+    const { searchParams } = new URL(req.url);
 
-  if (!session_id || !user_email) {
-    return Response.json({ error: "Data delete belum lengkap." }, { status: 400 });
+    const session_id = searchParams.get("session_id");
+    const user_email = searchParams.get("user_email");
+
+    if (!session_id || !user_email) {
+      return Response.json(
+        {
+          error: "Data delete belum lengkap."
+        },
+        {
+          status: 400
+        }
+      );
+    }
+
+    const { error } = await supabase
+      .from("chat_sessions")
+      .delete()
+      .eq("id", session_id)
+      .eq("user_email", user_email);
+
+    if (error) {
+      return Response.json(
+        {
+          success: false,
+          error: error.message
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
+    return Response.json({
+      success: true
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        error: error.message
+      },
+      {
+        status: 500
+      }
+    );
   }
-
-  const { error } = await supabase
-    .from("chat_sessions")
-    .delete()
-    .eq("id", session_id)
-    .eq("user_email", user_email);
-
-  return Response.json({ success: !error, error });
 }
