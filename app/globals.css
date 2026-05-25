@@ -1293,3 +1293,60 @@ body {
   color: #d4d4d8;
   line-height: 1.7;
 }
+
+.episode-server-section {
+  margin-top: 18px;
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.episode-server-section h5 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.episode-server-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.episode-server-item {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.episode-server-item strong {
+  display: block;
+  color: white;
+  font-size: 14px;
+}
+
+.episode-server-item span {
+  display: block;
+  color: #60a5fa;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.episode-server-item small {
+  display: block;
+  color: #a1a1aa;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.episode-server-empty {
+  margin: 0;
+  color: #a1a1aa;
+}
+
+@media (max-width: 820px) {
+  .episode-server-list {
+    grid-template-columns: 1fr;
+  }
+}
