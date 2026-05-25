@@ -9,12 +9,30 @@ const tools = [
   { id: "chat", name: "AI Chat", icon: "💬" },
   { id: "tempmail", name: "Tempmail", icon: "📧" },
   { id: "anime", name: "Stream Anime", icon: "🎬" },
+  { id: "tv", name: "Stream TV", icon: "📺" },
   { id: "image", name: "Image Tool", icon: "🖼️" },
   { id: "text", name: "Text Writer", icon: "✍️" },
   { id: "code", name: "Code Helper", icon: "💻" },
   { id: "translate", name: "Translate", icon: "🌐" },
   { id: "summary", name: "Summarizer", icon: "📄" },
   { id: "settings", name: "Settings", icon: "⚙️" }
+];
+
+const tvChannels = [
+  { value: "trans7", label: "Trans7" },
+  { value: "transtv", label: "Trans TV" },
+  { value: "rcti", label: "RCTI" },
+  { value: "mnctv", label: "MNCTV" },
+  { value: "gtv", label: "GTV" },
+  { value: "inews", label: "iNews" },
+  { value: "antv", label: "ANTV" },
+  { value: "sctv", label: "SCTV" },
+  { value: "indosiar", label: "Indosiar" },
+  { value: "moji", label: "Moji" },
+  { value: "metro", label: "Metro TV" },
+  { value: "tvone", label: "TV One" },
+  { value: "kompastv", label: "Kompas TV" },
+  { value: "nettv", label: "NET TV" }
 ];
 
 function MessageContent({ text }) {
@@ -91,6 +109,11 @@ export default function Home() {
 
   const [animeBookmarks, setAnimeBookmarks] = useState([]);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
+  const [tvChannel, setTvChannel] = useState("trans7");
+  const [tvVersion, setTvVersion] = useState("1");
+  const [tvUrl, setTvUrl] = useState("");
+  const [tvKey, setTvKey] = useState(0);
 
   const isLoggedIn = !!user?.email;
   const canUseWorkspace = isLoggedIn || isGuest;
@@ -714,6 +737,29 @@ export default function Home() {
     setAnimeItems(list);
   }
 
+  function loadStreamTv() {
+    if (!tvChannel.trim()) {
+      alert("Pilih channel dulu.");
+      return;
+    }
+
+    const url = `https://bintangapi.full.diskon.cloud/api/stream/TV/indonesia/?channel=${encodeURIComponent(
+      tvChannel.trim()
+    )}&v=${encodeURIComponent(tvVersion || "1")}`;
+
+    setTvUrl(url);
+    setTvKey((prev) => prev + 1);
+  }
+
+  function openStreamTvNewTab() {
+    if (!tvUrl) {
+      loadStreamTv();
+      return;
+    }
+
+    window.open(tvUrl, "_blank");
+  }
+
   async function loginGoogle() {
     if (!supabase) return;
 
@@ -987,7 +1033,9 @@ export default function Home() {
                 <div className="profile-menu">
                   <div className="profile-menu-head">
                     <strong>{isLoggedIn ? "Akun Google" : "Guest Mode"}</strong>
-                    <small>{isLoggedIn ? user.email : "Data tidak disimpan"}</small>
+                    <small>
+                      {isLoggedIn ? user.email : "Data tidak disimpan"}
+                    </small>
                   </div>
 
                   <button
@@ -1022,13 +1070,17 @@ export default function Home() {
                       >
                         🎬 Stream Anime
                       </button>
+
+                      <button
+                        className="profile-menu-item"
+                        onClick={() => openTool("tv")}
+                      >
+                        📺 Stream TV
+                      </button>
                     </>
                   )}
 
-                  <button
-                    className="profile-menu-item danger"
-                    onClick={logout}
-                  >
+                  <button className="profile-menu-item danger" onClick={logout}>
                     {isLoggedIn ? "🚪 Logout" : "🚪 Keluar Guest"}
                   </button>
                 </div>
@@ -1088,6 +1140,19 @@ export default function Home() {
                 <p>
                   Cari anime, lihat jadwal, ongoing, complete, detail episode,
                   dan bookmark anime favorit.
+                </p>
+                <span>Buka Tool →</span>
+              </button>
+
+              <button
+                className="workspace-app-card"
+                onClick={() => openTool("tv")}
+              >
+                <div className="app-icon red">📺</div>
+                <h2>Stream TV</h2>
+                <p>
+                  Nonton channel TV Indonesia dari player sederhana. Pilih
+                  channel dan versi stream sesuai sumber API.
                 </p>
                 <span>Buka Tool →</span>
               </button>
@@ -1223,9 +1288,15 @@ export default function Home() {
 
               <div className="anime-controls">
                 <button onClick={() => loadAnime("home", 1)}>Home</button>
-                <button onClick={() => loadAnime("schedule", 1)}>Schedule</button>
-                <button onClick={() => loadAnime("ongoing", 1)}>Ongoing</button>
-                <button onClick={() => loadAnime("complete", 1)}>Complete</button>
+                <button onClick={() => loadAnime("schedule", 1)}>
+                  Schedule
+                </button>
+                <button onClick={() => loadAnime("ongoing", 1)}>
+                  Ongoing
+                </button>
+                <button onClick={() => loadAnime("complete", 1)}>
+                  Complete
+                </button>
                 <button onClick={showBookmarkedAnime}>Bookmark</button>
               </div>
 
@@ -1581,6 +1652,98 @@ export default function Home() {
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : activeTool === "tv" ? (
+          <section className="placeholder-panel">
+            <div className="placeholder-card tv-panel">
+              <div className="placeholder-icon">📺</div>
+
+              <h2>Stream TV</h2>
+
+              <p>
+                Pilih channel TV Indonesia, lalu klik Load TV untuk memuat
+                player. Gunakan hanya untuk channel dan sumber yang memang legal
+                tersedia.
+              </p>
+
+              <div className="tv-control-box">
+                <div className="tv-field">
+                  <label>Channel</label>
+
+                  <select
+                    value={tvChannel}
+                    onChange={(e) => setTvChannel(e.target.value)}
+                  >
+                    {tvChannels.map((channel) => (
+                      <option key={channel.value} value={channel.value}>
+                        {channel.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="tv-field">
+                  <label>Versi Stream</label>
+
+                  <select
+                    value={tvVersion}
+                    onChange={(e) => setTvVersion(e.target.value)}
+                  >
+                    <option value="1">v1</option>
+                    <option value="2">v2</option>
+                    <option value="3">v3</option>
+                  </select>
+                </div>
+
+                <button onClick={loadStreamTv}>Load TV</button>
+              </div>
+
+              <div className="tv-custom-box">
+                <label>Custom Channel</label>
+
+                <input
+                  value={tvChannel}
+                  onChange={(e) => setTvChannel(e.target.value)}
+                  placeholder="Contoh: trans7"
+                />
+              </div>
+
+              {tvUrl ? (
+                <div className="tv-player-box">
+                  <div className="tv-player-header">
+                    <div>
+                      <h3>
+                        {tvChannels.find((item) => item.value === tvChannel)
+                          ?.label || tvChannel}
+                      </h3>
+
+                      <p>Versi: v{tvVersion}</p>
+                    </div>
+
+                    <button onClick={openStreamTvNewTab}>Buka Tab Baru</button>
+                  </div>
+
+                  <video
+                    key={tvKey}
+                    className="tv-player"
+                    src={tvUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+
+                  <div className="tv-url-box">
+                    <span>Request URL</span>
+                    <code>{tvUrl}</code>
+                  </div>
+                </div>
+              ) : (
+                <div className="tv-empty-box">
+                  <h3>Belum ada channel dimuat</h3>
+                  <p>Pilih channel lalu klik Load TV.</p>
                 </div>
               )}
             </div>
