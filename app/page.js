@@ -9,9 +9,9 @@ const tools = [
   { id: "home", name: "Beranda", icon: "🏠" },
   { id: "chat", name: "AI Chat", icon: "💬" },
   { id: "tempmail", name: "Tempmail", icon: "📧" },
-  { id: "image", name: "Image Tool", icon: "🖼️" },
-  { id: "text", name: "Text Writer", icon: "✍️" },
-  { id: "code", name: "Code Helper", icon: "💻" },
+  { id: "image", name: "AI Image", icon: "🖼️" },
+  { id: "text", name: "AI Writer", icon: "✍️" },
+  { id: "code", name: "AI Code", icon: "💻" },
   { id: "translate", name: "Translate", icon: "🌐" },
   { id: "summary", name: "Summarizer", icon: "📄" },
   { id: "settings", name: "Settings", icon: "⚙️" }
@@ -175,6 +175,11 @@ export default function Home() {
   const [activeTempMail, setActiveTempMail] = useState(null);
   const [tempMessages, setTempMessages] = useState([]);
   const [tempLoading, setTempLoading] = useState(false);
+
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const [generatedImage, setGeneratedImage] = useState(null);
 
   useEffect(() => {
     const client = getSupabase();
@@ -470,6 +475,70 @@ export default function Home() {
     }
   }
 
+  async function generateImage() {
+    if (!imagePrompt.trim() || imageLoading) return;
+
+    try {
+      setImageLoading(true);
+      setImageError("");
+      setGeneratedImage(null);
+
+      const res = await fetch("/api/image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          prompt: imagePrompt.trim()
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        setImageError(data?.error || "Gagal generate gambar.");
+        return;
+      }
+
+      setGeneratedImage({
+        prompt: imagePrompt.trim(),
+        text: data?.text || "",
+        mimeType: data?.mimeType || "image/png",
+        base64: data?.image || "",
+        dataUrl: `data:${data?.mimeType || "image/png"};base64,${
+          data?.image || ""
+        }`
+      });
+    } catch {
+      setImageError("Terjadi error saat generate gambar.");
+    } finally {
+      setImageLoading(false);
+    }
+  }
+
+  function downloadGeneratedImage() {
+    if (!generatedImage?.dataUrl) return;
+
+    const ext =
+      generatedImage?.mimeType?.includes("jpeg") ||
+      generatedImage?.mimeType?.includes("jpg")
+        ? "jpg"
+        : "png";
+
+    const link = document.createElement("a");
+    link.href = generatedImage.dataUrl;
+    link.download = `properside-ai-image.${ext}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function useExamplePrompt(text) {
+    setImagePrompt(text);
+    setActiveTool("image");
+    setToolMenuOpen(false);
+  }
+
   function renderChatHistory() {
     return (
       <div className="history-box">
@@ -508,6 +577,191 @@ export default function Home() {
     );
   }
 
+  function renderImageTool() {
+    return (
+      <section className="placeholder-panel">
+        <div
+          className="placeholder-card"
+          style={{
+            maxWidth: 980,
+            width: "100%",
+            textAlign: "left"
+          }}
+        >
+          <div className="placeholder-icon">🖼️</div>
+
+          <h2 style={{ textAlign: "center" }}>AI Image Generator</h2>
+
+          <p style={{ textAlign: "center" }}>
+            Buat gambar dari teks memakai Gemini 2.5 Flash Image.
+          </p>
+
+          <div
+            style={{
+              marginTop: 18,
+              display: "grid",
+              gap: 12
+            }}
+          >
+            <textarea
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              placeholder='Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
+              rows={5}
+              style={{
+                width: "100%",
+                borderRadius: 18,
+                border: "1px solid #2f2f35",
+                background: "#0f0f11",
+                color: "#fff",
+                padding: 16,
+                fontSize: 15,
+                outline: "none",
+                resize: "vertical"
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap"
+              }}
+            >
+              <button onClick={generateImage} disabled={imageLoading}>
+                {imageLoading ? "Generating..." : "Generate Image"}
+              </button>
+
+              {generatedImage?.dataUrl && (
+                <button onClick={downloadGeneratedImage}>
+                  Download Image
+                </button>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap"
+              }}
+            >
+              <button
+                onClick={() =>
+                  useExamplePrompt(
+                    "Buat gambar mobil sport cyberpunk di jalan kota malam, neon lights, cinematic, ultra detail"
+                  )
+                }
+                style={{
+                  background: "#18181b",
+                  border: "1px solid #2f2f35",
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  cursor: "pointer"
+                }}
+              >
+                Cyberpunk Car
+              </button>
+
+              <button
+                onClick={() =>
+                  useExamplePrompt(
+                    "Buat ilustrasi logo maskot kucing lucu memakai hoodie biru, gaya modern flat vector, background putih"
+                  )
+                }
+                style={{
+                  background: "#18181b",
+                  border: "1px solid #2f2f35",
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  cursor: "pointer"
+                }}
+              >
+                Mascot Logo
+              </button>
+
+              <button
+                onClick={() =>
+                  useExamplePrompt(
+                    "Buat poster anime fantasy seorang pendekar wanita memegang pedang bercahaya di hutan malam"
+                  )
+                }
+                style={{
+                  background: "#18181b",
+                  border: "1px solid #2f2f35",
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  cursor: "pointer"
+                }}
+              >
+                Anime Poster
+              </button>
+            </div>
+
+            {imageError && (
+              <div
+                style={{
+                  background: "rgba(220, 38, 38, 0.15)",
+                  color: "#fca5a5",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  borderRadius: 14,
+                  padding: 14
+                }}
+              >
+                {imageError}
+              </div>
+            )}
+
+            {generatedImage?.dataUrl && (
+              <div
+                style={{
+                  marginTop: 10,
+                  background: "#101014",
+                  border: "1px solid #27272a",
+                  borderRadius: 22,
+                  padding: 16
+                }}
+              >
+                <img
+                  src={generatedImage.dataUrl}
+                  alt={generatedImage.prompt}
+                  style={{
+                    width: "100%",
+                    borderRadius: 18,
+                    display: "block"
+                  }}
+                />
+
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: "grid",
+                    gap: 8
+                  }}
+                >
+                  <div>
+                    <strong>Prompt:</strong>
+                    <p style={{ marginTop: 6 }}>{generatedImage.prompt}</p>
+                  </div>
+
+                  {generatedImage.text ? (
+                    <div>
+                      <strong>Keterangan AI:</strong>
+                      <p style={{ marginTop: 6 }}>{generatedImage.text}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   function renderActiveTool() {
     if (activeTool === "home") {
       return (
@@ -519,12 +773,25 @@ export default function Home() {
 
             <p>
               Pilih tool di menu atas untuk mulai menggunakan AI Chat,
-              Tempmail, dan fitur lainnya.
+              AI Image, Tempmail, dan fitur lainnya.
             </p>
 
-            <button onClick={() => setActiveTool("chat")}>
-              Mulai Chat AI
-            </button>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "center",
+                flexWrap: "wrap"
+              }}
+            >
+              <button onClick={() => setActiveTool("chat")}>
+                Mulai Chat AI
+              </button>
+
+              <button onClick={() => setActiveTool("image")}>
+                Buka AI Image
+              </button>
+            </div>
           </div>
         </section>
       );
@@ -688,6 +955,10 @@ export default function Home() {
           </div>
         </section>
       );
+    }
+
+    if (activeTool === "image") {
+      return renderImageTool();
     }
 
     return (
