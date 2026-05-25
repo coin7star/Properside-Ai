@@ -5,19 +5,25 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
-    const { message } = await req.json();
+    const body = await req.json();
+
+    const message = body?.message;
+    const user_email = body?.user_email || null;
 
     if (!message || !message.trim()) {
       return Response.json(
-        { reply: "Pesan kosong." },
-        { status: 400 }
+        {
+          reply: "Pesan kosong."
+        },
+        {
+          status: 400
+        }
       );
     }
 
     const groqApiKey = process.env.GROQ_API_KEY;
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!groqApiKey) {
       return Response.json({
@@ -39,7 +45,7 @@ export async function POST(req) {
             {
               role: "system",
               content:
-                "Kamu adalah Properside AI."
+                "Kamu adalah Properside AI. Jawab dalam bahasa Indonesia yang jelas, ramah, dan mudah dipahami pemula."
             },
             {
               role: "user",
@@ -53,6 +59,13 @@ export async function POST(req) {
 
     const data = await groqResponse.json();
 
+    if (!groqResponse.ok) {
+      return Response.json({
+        reply: "Groq API error. Cek API key atau model.",
+        detail: data
+      });
+    }
+
     const aiText =
       data?.choices?.[0]?.message?.content ||
       "AI tidak memberikan jawaban.";
@@ -63,18 +76,28 @@ export async function POST(req) {
         supabaseServiceKey
       );
 
-      await supabase.from("chats").insert({
+      const { error } = await supabase.from("chats").insert({
+        user_email,
         user_message: message,
         ai_response: aiText
       });
+
+      if (error) {
+        console.error("Supabase insert error:", error.message);
+      }
     }
 
     return Response.json({
       reply: aiText
     });
   } catch (error) {
-    return Response.json({
-      reply: error.message
-    });
+    return Response.json(
+      {
+        reply: "Server error: " + error.message
+      },
+      {
+        status: 500
+      }
+    );
   }
 }
