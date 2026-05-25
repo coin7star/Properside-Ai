@@ -24,10 +24,53 @@ function getGroqKey() {
   return groqApiKey;
 }
 
+async function askGroq(message, oldMessages = []) {
+  const groqApiKey = getGroqKey();
+
+  const groqMessages = [
+    {
+      role: "system",
+      content:
+        "Kamu adalah Properside AI. Jawab dalam bahasa Indonesia yang jelas, ramah, dan mudah dipahami pemula."
+    },
+    ...oldMessages,
+    {
+      role: "user",
+      content: message
+    }
+  ];
+
+  const groqResponse = await fetch(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${groqApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: groqMessages,
+        temperature: 0.7
+      })
+    }
+  );
+
+  const groqData = await groqResponse.json();
+
+  if (!groqResponse.ok) {
+    throw new Error("Groq API error.");
+  }
+
+  return (
+    groqData?.choices?.[0]?.message?.content ||
+    "AI tidak memberikan jawaban."
+  );
+}
+
 export async function GET(req) {
   try {
     const supabase = getSupabaseAdmin();
-
     const { searchParams } = new URL(req.url);
 
     const action = searchParams.get("action");
@@ -129,25 +172,11 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const supabase = getSupabaseAdmin();
-    const groqApiKey = getGroqKey();
-
     const body = await req.json();
 
     const message = body?.message;
-    const user_email = body?.user_email;
+    const user_email = body?.user_email || null;
     let session_id = body?.session_id || null;
-
-    if (!user_email) {
-      return Response.json(
-        {
-          reply: "User belum login."
-        },
-        {
-          status: 401
-        }
-      );
-    }
 
     if (!message || !message.trim()) {
       return Response.json(
@@ -159,6 +188,18 @@ export async function POST(req) {
         }
       );
     }
+
+    if (!user_email) {
+      const aiText = await askGroq(message);
+
+      return Response.json({
+        reply: aiText,
+        session_id: null,
+        guest: true
+      });
+    }
+
+    const supabase = getSupabaseAdmin();
 
     if (!session_id) {
       const title =
@@ -221,51 +262,12 @@ export async function POST(req) {
       })
       .limit(20);
 
-    const groqMessages = [
-      {
-        role: "system",
-        content:
-          "Kamu adalah Properside AI. Jawab dalam bahasa Indonesia yang jelas, ramah, dan mudah dipahami pemula."
-      },
-      ...(oldMessages || []).map((msg) => ({
-        role: msg.role === "ai" ? "assistant" : "user",
-        content: msg.content
-      }))
-    ];
+    const mappedOldMessages = (oldMessages || []).map((msg) => ({
+      role: msg.role === "ai" ? "assistant" : "user",
+      content: msg.content
+    }));
 
-    const groqResponse = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${groqApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          messages: groqMessages,
-          temperature: 0.7
-        })
-      }
-    );
-
-    const groqData = await groqResponse.json();
-
-    if (!groqResponse.ok) {
-      return Response.json(
-        {
-          reply: "Groq API error.",
-          detail: groqData
-        },
-        {
-          status: 500
-        }
-      );
-    }
-
-    const aiText =
-      groqData?.choices?.[0]?.message?.content ||
-      "AI tidak memberikan jawaban.";
+    const aiText = await askGroq(message, mappedOldMessages);
 
     const { error: aiMessageError } = await supabase
       .from("chat_messages")
@@ -299,7 +301,6 @@ export async function POST(req) {
 export async function PATCH(req) {
   try {
     const supabase = getSupabaseAdmin();
-
     const body = await req.json();
 
     const session_id = body?.session_id;
@@ -356,7 +357,6 @@ export async function PATCH(req) {
 export async function DELETE(req) {
   try {
     const supabase = getSupabaseAdmin();
-
     const { searchParams } = new URL(req.url);
 
     const session_id = searchParams.get("session_id");
