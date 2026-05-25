@@ -400,3 +400,71 @@ button:disabled {
     height: auto;
   }
 }
+
+.history-box {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 18px;
+  padding: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.new-chat-btn {
+  margin-bottom: 12px;
+  background: #16a34a;
+}
+
+.history-box h3 {
+  margin: 8px 0 10px;
+  font-size: 14px;
+  color: #a1a1aa;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-history {
+  color: #71717a;
+  font-size: 13px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.history-item.active {
+  border-color: #2563eb;
+  background: #172554;
+}
+
+.history-item button {
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-actions {
+  display: flex;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.history-actions span {
+  font-size: 14px;
+}
