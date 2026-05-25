@@ -26,16 +26,14 @@ export async function GET(req) {
       );
     }
 
-    if (action === "load") {
+    if (action === "list") {
       const { data, error } = await supabase
         .from("tempmails")
         .select("*")
         .eq("user_email", user_email)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
 
-      return Response.json({ data, error });
+      return Response.json({ data: data || [], error });
     }
 
     if (action === "check") {
