@@ -902,3 +902,29 @@ body {
 .tempmail-box {
   margin-top: 20px;
 }
+
+.guest-note {
+  margin-top: 16px;
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.guest-warning {
+  background: #451a03;
+  border: 1px solid #92400e;
+  color: #fed7aa;
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.guest-warning strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.guest-warning p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
