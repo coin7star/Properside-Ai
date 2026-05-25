@@ -1,3 +1,8 @@
+import { createClient } from "@supabase/supabase-js";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req) {
   try {
     const { message } = await req.json();
@@ -10,10 +15,13 @@ export async function POST(req) {
     }
 
     const groqApiKey = process.env.GROQ_API_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!groqApiKey) {
       return Response.json({
-        reply: "GROQ_API_KEY belum diisi di Vercel."
+        reply: "GROQ_API_KEY belum diisi."
       });
     }
 
@@ -31,7 +39,7 @@ export async function POST(req) {
             {
               role: "system",
               content:
-                "Kamu adalah Properside AI. Jawab dalam bahasa Indonesia yang jelas, ramah, dan mudah dipahami pemula."
+                "Kamu adalah Properside AI."
             },
             {
               role: "user",
@@ -45,21 +53,28 @@ export async function POST(req) {
 
     const data = await groqResponse.json();
 
-    if (!groqResponse.ok) {
-      return Response.json({
-        reply: "Groq API error. Cek API key atau model.",
-        detail: data
+    const aiText =
+      data?.choices?.[0]?.message?.content ||
+      "AI tidak memberikan jawaban.";
+
+    if (supabaseUrl && supabaseServiceKey) {
+      const supabase = createClient(
+        supabaseUrl,
+        supabaseServiceKey
+      );
+
+      await supabase.from("chats").insert({
+        user_message: message,
+        ai_response: aiText
       });
     }
 
     return Response.json({
-      reply:
-        data?.choices?.[0]?.message?.content ||
-        "AI tidak memberikan jawaban."
+      reply: aiText
     });
   } catch (error) {
     return Response.json({
-      reply: "Server error: " + error.message
+      reply: error.message
     });
   }
 }
