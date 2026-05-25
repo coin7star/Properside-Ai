@@ -60,6 +60,7 @@ function MessageContent({ text }) {
 export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [activeTool, setActiveTool] = useState("chat");
 
   const [sessions, setSessions] = useState([]);
@@ -73,6 +74,9 @@ export default function Home() {
   const [tempMessages, setTempMessages] = useState([]);
   const [tempLoading, setTempLoading] = useState(false);
 
+  const isLoggedIn = !!user?.email;
+  const canUseWorkspace = isLoggedIn || isGuest;
+
   useEffect(() => {
     const client = getSupabase();
     setSupabase(client);
@@ -83,6 +87,10 @@ export default function Home() {
 
     const { data } = client.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+
+      if (session?.user) {
+        setIsGuest(false);
+      }
     });
 
     return () => {
@@ -104,6 +112,8 @@ export default function Home() {
   }
 
   async function loadMessages(sessionId) {
+    if (!user?.email) return;
+
     setActiveSessionId(sessionId);
 
     const res = await fetch(
@@ -127,6 +137,8 @@ export default function Home() {
   }
 
   async function renameSession(sessionId) {
+    if (!user?.email) return;
+
     const title = prompt("Nama chat baru:");
     if (!title || !title.trim()) return;
 
@@ -146,6 +158,8 @@ export default function Home() {
   }
 
   async function deleteSession(sessionId) {
+    if (!user?.email) return;
+
     const ok = confirm("Hapus history chat ini?");
     if (!ok) return;
 
@@ -170,7 +184,6 @@ export default function Home() {
       );
 
       const data = await res.json();
-
       const mails = data?.data || [];
 
       setTempMails(mails);
@@ -184,8 +197,6 @@ export default function Home() {
   }
 
   async function createTempMail() {
-    if (!user?.email) return;
-
     try {
       setTempLoading(true);
 
@@ -195,16 +206,23 @@ export default function Home() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          user_email: user.email
+          user_email: user?.email || null
         })
       });
 
       const data = await res.json();
 
       if (data?.data) {
-        setActiveTempMail(data.data);
+        const newMail = data.data;
+
+        setActiveTempMail(newMail);
         setTempMessages([]);
-        loadTempMails(user.email);
+
+        if (user?.email) {
+          loadTempMails(user.email);
+        } else {
+          setTempMails((prev) => [newMail, ...prev]);
+        }
       } else {
         alert(data?.error || "Gagal membuat tempmail.");
       }
@@ -216,16 +234,16 @@ export default function Home() {
   }
 
   async function checkTempMail(mail = activeTempMail) {
-    if (!mail?.email_token || !user?.email) return;
+    if (!mail?.email_token) return;
 
     try {
       setTempLoading(true);
       setActiveTempMail(mail);
 
       const res = await fetch(
-        `/api/tempmail?action=check&user_email=${encodeURIComponent(
-          user.email
-        )}&token=${encodeURIComponent(mail.email_token)}`
+        `/api/tempmail?action=check&token=${encodeURIComponent(
+          mail.email_token
+        )}`
       );
 
       const data = await res.json();
@@ -263,11 +281,24 @@ export default function Home() {
     });
   }
 
-  async function logout() {
-    if (!supabase) return;
-
-    await supabase.auth.signOut();
+  function enterGuestMode() {
+    setIsGuest(true);
     setUser(null);
+    setSessions([]);
+    setActiveSessionId(null);
+    setChats([]);
+    setTempMails([]);
+    setActiveTempMail(null);
+    setTempMessages([]);
+  }
+
+  async function logout() {
+    if (supabase && user?.email) {
+      await supabase.auth.signOut();
+    }
+
+    setUser(null);
+    setIsGuest(false);
     setChats([]);
     setSessions([]);
     setActiveSessionId(null);
@@ -277,7 +308,7 @@ export default function Home() {
   }
 
   async function sendMessage() {
-    if (!message.trim() || loading || !user?.email) return;
+    if (!message.trim() || loading) return;
 
     const userText = message.trim();
 
@@ -300,14 +331,14 @@ export default function Home() {
         },
         body: JSON.stringify({
           message: userText,
-          user_email: user.email,
-          session_id: activeSessionId
+          user_email: user?.email || null,
+          session_id: user?.email ? activeSessionId : null
         })
       });
 
       const data = await res.json();
 
-      if (data.session_id && !activeSessionId) {
+      if (data.session_id && !activeSessionId && user?.email) {
         setActiveSessionId(data.session_id);
       }
 
@@ -319,7 +350,9 @@ export default function Home() {
         }
       ]);
 
-      loadSessions(user.email);
+      if (user?.email) {
+        loadSessions(user.email);
+      }
     } catch {
       setChats((prev) => [
         ...prev,
@@ -333,7 +366,7 @@ export default function Home() {
     }
   }
 
-  if (!user) {
+  if (!canUseWorkspace) {
     return (
       <main className="login-page">
         <div className="login-card">
@@ -342,11 +375,26 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Login dengan Google untuk menyimpan history chat dan menggunakan
-            workspace AI.
+            Login dengan Google untuk menyimpan history chat, tempmail, dan data
+            tools kamu.
           </p>
 
           <button onClick={loginGoogle}>Login dengan Google</button>
+
+          <button
+            onClick={enterGuestMode}
+            style={{
+              marginTop: 12,
+              background: "#27272a"
+            }}
+          >
+            Masuk sebagai Guest
+          </button>
+
+          <p className="guest-note">
+            Mode Guest bisa pakai AI dan tools, tapi semua data tidak disimpan.
+            Kalau halaman direload, chat dan tempmail guest akan hilang.
+          </p>
         </div>
       </main>
     );
@@ -360,9 +408,19 @@ export default function Home() {
 
           <div>
             <h2>Properside</h2>
-            <span>AI Workspace</span>
+            <span>{isLoggedIn ? "AI Workspace" : "Guest Mode"}</span>
           </div>
         </div>
+
+        {!isLoggedIn && (
+          <div className="guest-warning">
+            <strong>Guest Mode</strong>
+            <p>
+              Data chat dan tools tidak disimpan. Login Google untuk menyimpan
+              semuanya.
+            </p>
+          </div>
+        )}
 
         <nav className="tool-list">
           {tools.map((tool) => (
@@ -386,36 +444,44 @@ export default function Home() {
 
           <h3>History Chat</h3>
 
-          <div className="history-list">
-            {sessions.length === 0 && (
-              <p className="empty-history">Belum ada history.</p>
-            )}
+          {!isLoggedIn ? (
+            <p className="empty-history">
+              History tidak tersedia di Guest Mode.
+            </p>
+          ) : (
+            <div className="history-list">
+              {sessions.length === 0 && (
+                <p className="empty-history">Belum ada history.</p>
+              )}
 
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                className={
-                  activeSessionId === session.id
-                    ? "history-item active"
-                    : "history-item"
-                }
-              >
-                <button onClick={() => loadMessages(session.id)}>
-                  {session.title}
-                </button>
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className={
+                    activeSessionId === session.id
+                      ? "history-item active"
+                      : "history-item"
+                  }
+                >
+                  <button onClick={() => loadMessages(session.id)}>
+                    {session.title}
+                  </button>
 
-                <div className="history-actions">
-                  <span onClick={() => renameSession(session.id)}>✏️</span>
-                  <span onClick={() => deleteSession(session.id)}>🗑️</span>
+                  <div className="history-actions">
+                    <span onClick={() => renameSession(session.id)}>✏️</span>
+                    <span onClick={() => deleteSession(session.id)}>🗑️</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="sidebar-footer">
-          <p>{user.email}</p>
-          <button onClick={logout}>Logout</button>
+          <p>{isLoggedIn ? user.email : "Guest User"}</p>
+          <button onClick={logout}>
+            {isLoggedIn ? "Logout" : "Keluar Guest"}
+          </button>
         </div>
       </aside>
 
@@ -423,11 +489,15 @@ export default function Home() {
         <header className="topbar">
           <div>
             <h1>{tools.find((t) => t.id === activeTool)?.name}</h1>
-            <p>Properside AI Workspace.</p>
+            <p>
+              {isLoggedIn
+                ? "Data kamu tersimpan otomatis di akun Google."
+                : "Guest Mode aktif. Data tidak akan tersimpan setelah reload."}
+            </p>
           </div>
 
           <div className="user-pill">
-            {user.email?.charAt(0).toUpperCase()}
+            {isLoggedIn ? user.email?.charAt(0).toUpperCase() : "G"}
           </div>
         </header>
 
@@ -437,7 +507,11 @@ export default function Home() {
               {chats.length === 0 && (
                 <div className="empty-chat">
                   <h2>Apa yang ingin kamu buat hari ini?</h2>
-                  <p>Buat chat baru atau pilih history di sidebar kiri.</p>
+                  <p>
+                    {isLoggedIn
+                      ? "Buat chat baru atau pilih history di sidebar kiri."
+                      : "Kamu sedang memakai Guest Mode. Chat tidak akan tersimpan."}
+                  </p>
                 </div>
               )}
 
@@ -487,8 +561,9 @@ export default function Home() {
               <h2>Tempmail Tool</h2>
 
               <p>
-                Buat banyak email sementara. Email lama tetap tersimpan dan bisa
-                dicek kembali.
+                {isLoggedIn
+                  ? "Buat banyak email sementara. Email lama tersimpan di akun Google kamu."
+                  : "Guest Mode: tempmail bisa dipakai, tapi tidak tersimpan setelah reload."}
               </p>
 
               <button onClick={createTempMail}>
@@ -501,11 +576,11 @@ export default function Home() {
                 {tempMails.length === 0 ? (
                   <p>Belum ada tempmail.</p>
                 ) : (
-                  tempMails.map((mail) => (
+                  tempMails.map((mail, index) => (
                     <div
-                      key={mail.id}
+                      key={mail.id || index}
                       className={
-                        activeTempMail?.id === mail.id
+                        activeTempMail?.email === mail.email
                           ? "tempmail-item active"
                           : "tempmail-item"
                       }
