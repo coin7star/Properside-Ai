@@ -3,29 +3,35 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "./utils/supabaseClient";
 
-export default function Home() {
-  const supabase = getSupabase();
+export const dynamic = "force-dynamic";
 
+export default function Home() {
+  const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [reply, setReply] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    const client = getSupabase();
+    setSupabase(client);
+
+    client.auth.getUser().then(({ data }) => {
+      setUser(data?.user || null);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
 
     return () => {
-      data.subscription.unsubscribe();
+      data?.subscription?.unsubscribe();
     };
   }, []);
 
   async function loginGoogle() {
+    if (!supabase) return;
+
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -35,6 +41,8 @@ export default function Home() {
   }
 
   async function logout() {
+    if (!supabase) return;
+
     await supabase.auth.signOut();
     setUser(null);
     setReply("");
