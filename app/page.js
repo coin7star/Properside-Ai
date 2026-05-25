@@ -286,18 +286,29 @@ export default function Home() {
   function normalizeAnimeList(data) {
     if (Array.isArray(data)) return data;
 
+    if (data?.mode === "home") {
+      return [
+        ...(data?.ongoing || []),
+        ...(data?.completed || [])
+      ];
+    }
+
+    if (data?.mode === "schedule") {
+      return (data?.schedule || []).flatMap((day) =>
+        (day?.anime_list || []).map((anime) => ({
+          ...anime,
+          releaseDay: day.day
+        }))
+      );
+    }
+
     return (
+      data?.animeList ||
+      data?.anime_list ||
+      data?.list ||
+      data?.results ||
       data?.anime ||
       data?.animes ||
-      data?.list ||
-      data?.ongoing ||
-      data?.complete ||
-      data?.completed ||
-      data?.schedule ||
-      data?.home ||
-      data?.latest ||
-      data?.popular ||
-      data?.data ||
       []
     );
   }
@@ -315,10 +326,10 @@ export default function Home() {
 
   function getAnimeImage(item) {
     return (
+      item?.poster ||
       item?.image ||
       item?.thumbnail ||
       item?.thumb ||
-      item?.poster ||
       item?.cover ||
       item?.img ||
       ""
@@ -326,14 +337,33 @@ export default function Home() {
   }
 
   function getAnimeInfo(item) {
-    return (
-      item?.episode ||
-      item?.latest_episode ||
-      item?.status ||
+    const episode = item?.episodes
+      ? `Episode ${item.episodes}`
+      : item?.episode ||
+        item?.latest_episode ||
+        "";
+
+    const release =
+      item?.releaseDay ||
       item?.release_day ||
       item?.day ||
+      "";
+
+    const date =
+      item?.latestReleaseDate ||
+      item?.lastReleaseDate ||
+      "";
+
+    const score = item?.score
+      ? `Score ${item.score}`
+      : "";
+
+    return (
+      [episode, release, date, score]
+        .filter(Boolean)
+        .join(" • ") ||
+      item?.status ||
       item?.type ||
-      item?.score ||
       "Info tidak tersedia"
     );
   }
@@ -353,11 +383,17 @@ export default function Home() {
           return;
         }
 
-        url += `&q=${encodeURIComponent(animeQuery.trim())}`;
+        url += `&query=${encodeURIComponent(animeQuery.trim())}`;
       }
 
       const res = await fetch(url);
       const json = await res.json();
+
+      if (!json.success) {
+        alert(json.error || "Gagal mengambil data anime.");
+        setAnimeItems([]);
+        return;
+      }
 
       const list = normalizeAnimeList(json?.data);
 
