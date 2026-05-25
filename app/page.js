@@ -68,7 +68,8 @@ export default function Home() {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [tempMail, setTempMail] = useState(null);
+  const [tempMails, setTempMails] = useState([]);
+  const [activeTempMail, setActiveTempMail] = useState(null);
   const [tempMessages, setTempMessages] = useState([]);
   const [tempLoading, setTempLoading] = useState(false);
 
@@ -92,7 +93,7 @@ export default function Home() {
   useEffect(() => {
     if (user?.email) {
       loadSessions(user.email);
-      loadTempMail(user.email);
+      loadTempMails(user.email);
     }
   }, [user]);
 
@@ -162,20 +163,20 @@ export default function Home() {
     loadSessions(user.email);
   }
 
-  async function loadTempMail(email) {
+  async function loadTempMails(email) {
     try {
       const res = await fetch(
-        `/api/tempmail?action=load&user_email=${encodeURIComponent(email)}`
+        `/api/tempmail?action=list&user_email=${encodeURIComponent(email)}`
       );
 
       const data = await res.json();
 
-      if (data?.data) {
-        setTempMail({
-          email: data.data.email,
-          email_token: data.data.email_token,
-          deleted_in: data.data.deleted_in
-        });
+      const mails = data?.data || [];
+
+      setTempMails(mails);
+
+      if (mails.length > 0 && !activeTempMail) {
+        setActiveTempMail(mails[0]);
       }
     } catch {
       console.log("Gagal load tempmail.");
@@ -201,13 +202,9 @@ export default function Home() {
       const data = await res.json();
 
       if (data?.data) {
-        setTempMail({
-          email: data.data.email,
-          email_token: data.data.email_token,
-          deleted_in: data.data.deleted_in
-        });
-
+        setActiveTempMail(data.data);
         setTempMessages([]);
+        loadTempMails(user.email);
       } else {
         alert(data?.error || "Gagal membuat tempmail.");
       }
@@ -218,16 +215,17 @@ export default function Home() {
     }
   }
 
-  async function checkTempMail() {
-    if (!tempMail?.email_token || !user?.email) return;
+  async function checkTempMail(mail = activeTempMail) {
+    if (!mail?.email_token || !user?.email) return;
 
     try {
       setTempLoading(true);
+      setActiveTempMail(mail);
 
       const res = await fetch(
         `/api/tempmail?action=check&user_email=${encodeURIComponent(
           user.email
-        )}&token=${encodeURIComponent(tempMail.email_token)}`
+        )}&token=${encodeURIComponent(mail.email_token)}`
       );
 
       const data = await res.json();
@@ -273,7 +271,8 @@ export default function Home() {
     setChats([]);
     setSessions([]);
     setActiveSessionId(null);
-    setTempMail(null);
+    setTempMails([]);
+    setActiveTempMail(null);
     setTempMessages([]);
   }
 
@@ -482,39 +481,72 @@ export default function Home() {
           </section>
         ) : activeTool === "tempmail" ? (
           <section className="placeholder-panel">
-            <div className="placeholder-card">
+            <div className="placeholder-card tempmail-panel">
               <div className="placeholder-icon">📧</div>
 
               <h2>Tempmail Tool</h2>
 
               <p>
-                Buat email sementara dan cek inbox langsung dari workspace.
-                Email akan tersimpan di akun Google kamu.
+                Buat banyak email sementara. Email lama tetap tersimpan dan bisa
+                dicek kembali.
               </p>
 
-              {!tempMail ? (
-                <button onClick={createTempMail}>
-                  {tempLoading ? "Membuat..." : "Buat Tempmail"}
-                </button>
-              ) : (
+              <button onClick={createTempMail}>
+                {tempLoading ? "Membuat..." : "+ Buat Email Baru"}
+              </button>
+
+              <div className="tempmail-list">
+                <h3>Daftar Email</h3>
+
+                {tempMails.length === 0 ? (
+                  <p>Belum ada tempmail.</p>
+                ) : (
+                  tempMails.map((mail) => (
+                    <div
+                      key={mail.id}
+                      className={
+                        activeTempMail?.id === mail.id
+                          ? "tempmail-item active"
+                          : "tempmail-item"
+                      }
+                    >
+                      <button
+                        onClick={() => {
+                          setActiveTempMail(mail);
+                          setTempMessages([]);
+                        }}
+                      >
+                        <strong>{mail.email}</strong>
+                        <small>Expired: {mail.deleted_in || "-"}</small>
+                      </button>
+
+                      <span onClick={() => checkTempMail(mail)}>📥</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {activeTempMail && (
                 <>
                   <div className="tempmail-box">
-                    <h3>Email</h3>
+                    <h3>Email Aktif</h3>
 
-                    <div className="tempmail-email">{tempMail.email}</div>
+                    <div className="tempmail-email">
+                      {activeTempMail.email}
+                    </div>
 
-                    <p>Expired: {tempMail.deleted_in}</p>
+                    <p>Expired: {activeTempMail.deleted_in || "-"}</p>
 
                     <button
                       onClick={() =>
-                        navigator.clipboard.writeText(tempMail.email)
+                        navigator.clipboard.writeText(activeTempMail.email)
                       }
                     >
                       Copy Email
                     </button>
 
                     <button
-                      onClick={checkTempMail}
+                      onClick={() => checkTempMail(activeTempMail)}
                       style={{
                         marginTop: 10
                       }}
@@ -525,7 +557,7 @@ export default function Home() {
 
                   <div className="tempmail-messages">
                     {tempMessages.length === 0 ? (
-                      <p>Belum ada pesan masuk.</p>
+                      <p>Belum ada pesan masuk untuk email ini.</p>
                     ) : (
                       tempMessages.map((msg, index) => (
                         <div key={index} className="tempmail-message">
