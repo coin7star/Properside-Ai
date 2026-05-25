@@ -7,6 +7,7 @@ import { getSupabase } from "./utils/supabaseClient";
 
 const tools = [
   { id: "chat", name: "AI Chat", icon: "💬" },
+  { id: "tempmail", name: "Tempmail", icon: "📧" },
   { id: "image", name: "Image Tool", icon: "🖼️" },
   { id: "text", name: "Text Writer", icon: "✍️" },
   { id: "code", name: "Code Helper", icon: "💻" },
@@ -27,14 +28,8 @@ function MessageContent({ text }) {
 
         if (isCode) {
           const lines = part.split("\n");
-
-          const language =
-            lines[0]?.trim() || "code";
-
-          const code = lines
-            .slice(1)
-            .join("\n")
-            .trim();
+          const language = lines[0]?.trim() || "code";
+          const code = lines.slice(1).join("\n").trim();
 
           return (
             <div className="code-block" key={index}>
@@ -43,9 +38,7 @@ function MessageContent({ text }) {
 
                 <button
                   className="copy-btn"
-                  onClick={() =>
-                    navigator.clipboard.writeText(code)
-                  }
+                  onClick={() => navigator.clipboard.writeText(code)}
                 >
                   Copy
                 </button>
@@ -58,11 +51,7 @@ function MessageContent({ text }) {
           );
         }
 
-        return (
-          <p key={index}>
-            {part}
-          </p>
-        );
+        return <p key={index}>{part}</p>;
       })}
     </div>
   );
@@ -72,11 +61,16 @@ export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
   const [activeTool, setActiveTool] = useState("chat");
+
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [message, setMessage] = useState("");
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const [tempMail, setTempMail] = useState(null);
+  const [tempMessages, setTempMessages] = useState([]);
+  const [tempLoading, setTempLoading] = useState(false);
 
   useEffect(() => {
     const client = getSupabase();
@@ -102,12 +96,8 @@ export default function Home() {
   }, [user]);
 
   async function loadSessions(email) {
-    const res = await fetch(
-      `/api/chat?action=sessions&user_email=${email}`
-    );
-
+    const res = await fetch(`/api/chat?action=sessions&user_email=${email}`);
     const data = await res.json();
-
     setSessions(data.data || []);
   }
 
@@ -136,7 +126,6 @@ export default function Home() {
 
   async function renameSession(sessionId) {
     const title = prompt("Nama chat baru:");
-
     if (!title || !title.trim()) return;
 
     await fetch("/api/chat", {
@@ -156,7 +145,6 @@ export default function Home() {
 
   async function deleteSession(sessionId) {
     const ok = confirm("Hapus history chat ini?");
-
     if (!ok) return;
 
     await fetch(
@@ -171,6 +159,47 @@ export default function Home() {
     }
 
     loadSessions(user.email);
+  }
+
+  async function createTempMail() {
+    try {
+      setTempLoading(true);
+
+      const res = await fetch(
+        "https://bintangapi.full.diskon.cloud/api/tempmail/create/"
+      );
+
+      const data = await res.json();
+
+      if (data?.result?.data) {
+        setTempMail(data.result.data);
+        setTempMessages([]);
+      }
+    } catch {
+      alert("Gagal membuat tempmail.");
+    } finally {
+      setTempLoading(false);
+    }
+  }
+
+  async function checkTempMail() {
+    if (!tempMail?.email_token) return;
+
+    try {
+      setTempLoading(true);
+
+      const res = await fetch(
+        `https://bintangapi.full.diskon.cloud/api/tempmail/check/?token=${tempMail.email_token}`
+      );
+
+      const data = await res.json();
+
+      setTempMessages(data?.result?.data?.messages || []);
+    } catch {
+      alert("Gagal check inbox.");
+    } finally {
+      setTempLoading(false);
+    }
   }
 
   async function loginGoogle() {
@@ -188,7 +217,6 @@ export default function Home() {
     if (!supabase) return;
 
     await supabase.auth.signOut();
-
     setUser(null);
     setChats([]);
     setSessions([]);
@@ -261,12 +289,11 @@ export default function Home() {
           <h1>Properside AI</h1>
 
           <p>
-            Login dengan Google untuk menyimpan history chat dan menggunakan workspace AI.
+            Login dengan Google untuk menyimpan history chat dan menggunakan
+            workspace AI.
           </p>
 
-          <button onClick={loginGoogle}>
-            Login dengan Google
-          </button>
+          <button onClick={loginGoogle}>Login dengan Google</button>
         </div>
       </main>
     );
@@ -289,9 +316,7 @@ export default function Home() {
             <button
               key={tool.id}
               className={
-                activeTool === tool.id
-                  ? "tool-button active"
-                  : "tool-button"
+                activeTool === tool.id ? "tool-button active" : "tool-button"
               }
               onClick={() => setActiveTool(tool.id)}
             >
@@ -310,9 +335,7 @@ export default function Home() {
 
           <div className="history-list">
             {sessions.length === 0 && (
-              <p className="empty-history">
-                Belum ada history.
-              </p>
+              <p className="empty-history">Belum ada history.</p>
             )}
 
             {sessions.map((session) => (
@@ -329,13 +352,8 @@ export default function Home() {
                 </button>
 
                 <div className="history-actions">
-                  <span onClick={() => renameSession(session.id)}>
-                    ✏️
-                  </span>
-
-                  <span onClick={() => deleteSession(session.id)}>
-                    🗑️
-                  </span>
+                  <span onClick={() => renameSession(session.id)}>✏️</span>
+                  <span onClick={() => deleteSession(session.id)}>🗑️</span>
                 </div>
               </div>
             ))}
@@ -344,10 +362,7 @@ export default function Home() {
 
         <div className="sidebar-footer">
           <p>{user.email}</p>
-
-          <button onClick={logout}>
-            Logout
-          </button>
+          <button onClick={logout}>Logout</button>
         </div>
       </aside>
 
@@ -355,7 +370,7 @@ export default function Home() {
         <header className="topbar">
           <div>
             <h1>{tools.find((t) => t.id === activeTool)?.name}</h1>
-            <p>History chat tersimpan otomatis setelah login Google.</p>
+            <p>Properside AI Workspace.</p>
           </div>
 
           <div className="user-pill">
@@ -369,9 +384,7 @@ export default function Home() {
               {chats.length === 0 && (
                 <div className="empty-chat">
                   <h2>Apa yang ingin kamu buat hari ini?</h2>
-                  <p>
-                    Buat chat baru atau pilih history di sidebar kiri.
-                  </p>
+                  <p>Buat chat baru atau pilih history di sidebar kiri.</p>
                 </div>
               )}
 
@@ -413,6 +426,66 @@ export default function Home() {
               </button>
             </div>
           </section>
+        ) : activeTool === "tempmail" ? (
+          <section className="placeholder-panel">
+            <div className="placeholder-card">
+              <div className="placeholder-icon">📧</div>
+
+              <h2>Tempmail Tool</h2>
+
+              <p>Buat email sementara dan cek inbox langsung dari workspace.</p>
+
+              {!tempMail ? (
+                <button onClick={createTempMail}>
+                  {tempLoading ? "Membuat..." : "Buat Tempmail"}
+                </button>
+              ) : (
+                <>
+                  <div className="tempmail-box">
+                    <h3>Email</h3>
+
+                    <div className="tempmail-email">{tempMail.email}</div>
+
+                    <p>Expired: {tempMail.deleted_in}</p>
+
+                    <button
+                      onClick={() =>
+                        navigator.clipboard.writeText(tempMail.email)
+                      }
+                    >
+                      Copy Email
+                    </button>
+
+                    <button
+                      onClick={checkTempMail}
+                      style={{
+                        marginTop: 10
+                      }}
+                    >
+                      {tempLoading ? "Checking..." : "Check Inbox"}
+                    </button>
+                  </div>
+
+                  <div className="tempmail-messages">
+                    {tempMessages.length === 0 ? (
+                      <p>Belum ada pesan masuk.</p>
+                    ) : (
+                      tempMessages.map((msg, index) => (
+                        <div key={index} className="tempmail-message">
+                          <h4>{msg.subject || "No Subject"}</h4>
+                          <p>From: {msg.from}</p>
+
+                          <div className="tempmail-content">
+                            {msg.body || "Tidak ada isi pesan."}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
         ) : (
           <section className="placeholder-panel">
             <div className="placeholder-card">
@@ -423,7 +496,8 @@ export default function Home() {
               <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
 
               <p>
-                Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan ke tool khusus.
+                Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita
+                sambungkan ke tool khusus.
               </p>
 
               <button>Coming Soon</button>
