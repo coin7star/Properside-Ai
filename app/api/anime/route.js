@@ -12,18 +12,46 @@ async function fetchAnimeApi(path) {
     }
   });
 
-  const data = await res.json();
-
-  return data;
+  return await res.json();
 }
 
-function getData(data) {
-  return (
-    data?.result?.data ||
-    data?.result ||
-    data?.data ||
-    data
-  );
+function normalizeAnimeData(action, raw) {
+  const data =
+    raw?.data ||
+    raw?.result?.data ||
+    raw?.result ||
+    raw;
+
+  if (action === "home") {
+    return {
+      mode: "home",
+      ongoing: data?.ongoing?.animeList || [],
+      completed: data?.completed?.animeList || [],
+      pagination: raw?.pagination || null
+    };
+  }
+
+  if (action === "schedule") {
+    return {
+      mode: "schedule",
+      schedule: Array.isArray(data) ? data : [],
+      pagination: raw?.pagination || null
+    };
+  }
+
+  return {
+    mode: action,
+    animeList:
+      data?.animeList ||
+      data?.anime_list ||
+      data?.list ||
+      data?.results ||
+      data?.anime ||
+      data?.animes ||
+      [],
+    detail: data,
+    pagination: raw?.pagination || null
+  };
 }
 
 export async function GET(req) {
@@ -32,30 +60,89 @@ export async function GET(req) {
 
     const action = searchParams.get("action") || "home";
     const page = searchParams.get("page") || "1";
-    const query = searchParams.get("q") || "";
+    const query = searchParams.get("query") || searchParams.get("q") || "";
     const animeId = searchParams.get("animeId") || "";
+    const serverId = searchParams.get("serverId") || "";
+    const episodeId = searchParams.get("episodeId") || "";
 
-    let data;
+    let raw;
 
     if (action === "home") {
-      data = await fetchAnimeApi("/home/");
+      raw = await fetchAnimeApi("/home/");
     } else if (action === "schedule") {
-      data = await fetchAnimeApi("/schedule/");
+      raw = await fetchAnimeApi("/schedule/");
     } else if (action === "ongoing") {
-      data = await fetchAnimeApi(`/ongoing/?page=${page}`);
+      raw = await fetchAnimeApi(`/ongoing/?page=${encodeURIComponent(page)}`);
     } else if (action === "complete") {
-      data = await fetchAnimeApi(`/complete/?page=${page}`);
+      raw = await fetchAnimeApi(`/complete/?page=${encodeURIComponent(page)}`);
     } else if (action === "search") {
-      data = await fetchAnimeApi(
-        `/search/?q=${encodeURIComponent(query)}`
+      if (!query.trim()) {
+        return Response.json(
+          {
+            success: false,
+            error: "Parameter query wajib diisi."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      raw = await fetchAnimeApi(
+        `/search/?query=${encodeURIComponent(query.trim())}`
       );
     } else if (action === "detail") {
-      data = await fetchAnimeApi(
-        `/animeId/?animeId=${encodeURIComponent(animeId)}`
+      if (!animeId.trim()) {
+        return Response.json(
+          {
+            success: false,
+            error: "Parameter animeId wajib diisi."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      raw = await fetchAnimeApi(
+        `/animeId/?animeId=${encodeURIComponent(animeId.trim())}`
+      );
+    } else if (action === "episode") {
+      if (!episodeId.trim()) {
+        return Response.json(
+          {
+            success: false,
+            error: "Parameter episodeId wajib diisi."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      raw = await fetchAnimeApi(
+        `/episode/?episodeId=${encodeURIComponent(episodeId.trim())}`
+      );
+    } else if (action === "server") {
+      if (!serverId.trim()) {
+        return Response.json(
+          {
+            success: false,
+            error: "Parameter serverId wajib diisi."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      raw = await fetchAnimeApi(
+        `/server/?serverId=${encodeURIComponent(serverId.trim())}`
       );
     } else {
       return Response.json(
         {
+          success: false,
           error: "Action anime tidak dikenal."
         },
         {
@@ -64,10 +151,23 @@ export async function GET(req) {
       );
     }
 
+    if (raw?.status === false) {
+      return Response.json(
+        {
+          success: false,
+          error: raw?.msg || "API anime error.",
+          raw
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
     return Response.json({
       success: true,
-      data: getData(data),
-      raw: data
+      data: normalizeAnimeData(action, raw),
+      raw
     });
   } catch (error) {
     return Response.json(
