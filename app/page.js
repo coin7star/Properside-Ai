@@ -493,6 +493,49 @@ export default function Home() {
     }
   }
 
+  function renderChatHistory() {
+    return (
+      <div className="history-box">
+        <button className="new-chat-btn" onClick={newChat}>
+          + Chat Baru
+        </button>
+
+        <h3>History Chat</h3>
+
+        <div className="history-list">
+          {sessions.length === 0 && (
+            <p className="empty-history">Belum ada history.</p>
+          )}
+
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              className={
+                activeSessionId === session.id
+                  ? "history-item active"
+                  : "history-item"
+              }
+            >
+              <button onClick={() => loadMessages(session.id)}>
+                {session.title}
+              </button>
+
+              <div className="history-actions">
+                <span onClick={() => renameSession(session.id)}>
+                  ✏️
+                </span>
+
+                <span onClick={() => deleteSession(session.id)}>
+                  🗑️
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   function renderActiveTool() {
     if (activeTool === "home") {
       return (
@@ -503,7 +546,7 @@ export default function Home() {
             <h2>Selamat Datang di Properside AI</h2>
 
             <p>
-              Pilih tool di sidebar untuk mulai menggunakan AI Chat,
+              Pilih tool di menu atas untuk mulai menggunakan AI Chat,
               Tempmail, dan fitur lainnya.
             </p>
 
@@ -518,11 +561,13 @@ export default function Home() {
     if (activeTool === "chat") {
       return (
         <section className="chat-panel">
+          {renderChatHistory()}
+
           <div className="chat-box">
             {chats.length === 0 && (
               <div className="empty-chat">
                 <h2>Apa yang ingin kamu buat hari ini?</h2>
-                <p>Buat chat baru atau pilih history di sidebar kiri.</p>
+                <p>Buat chat baru atau pilih history chat di atas.</p>
               </div>
             )}
 
@@ -755,45 +800,6 @@ export default function Home() {
               </button>
             ))}
           </nav>
-
-          <div className="history-box">
-            <button className="new-chat-btn" onClick={newChat}>
-              + Chat Baru
-            </button>
-
-            <h3>History Chat</h3>
-
-            <div className="history-list">
-              {sessions.length === 0 && (
-                <p className="empty-history">Belum ada history.</p>
-              )}
-
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className={
-                    activeSessionId === session.id
-                      ? "history-item active"
-                      : "history-item"
-                  }
-                >
-                  <button onClick={() => loadMessages(session.id)}>
-                    {session.title}
-                  </button>
-
-                  <div className="history-actions">
-                    <span onClick={() => renameSession(session.id)}>
-                      ✏️
-                    </span>
-
-                    <span onClick={() => deleteSession(session.id)}>
-                      🗑️
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <div className="sidebar-footer">
             <p>{user.email}</p>
