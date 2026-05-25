@@ -1,13 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
 
+let supabaseClient = null;
+
 export function getSupabase() {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    "https://dummy.supabase.co";
+  if (supabaseClient) {
+    return supabaseClient;
+  }
 
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "dummy-anon-key";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum diatur."
+    );
+  }
+
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage:
+        typeof window !== "undefined"
+          ? window.localStorage
+          : undefined
+    }
+  });
+
+  return supabaseClient;
 }
