@@ -11,7 +11,7 @@ function getFalModel() {
 }
 
 function getHuggingFaceModel() {
-  return process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.1-Krea-dev";
+  return process.env.HF_IMAGE_MODEL || "ByteDance/Hyper-SD";
 }
 
 function getDefaultImageProvider() {
@@ -149,6 +149,28 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+function extractErrorMessage(rawText) {
+  if (!rawText) return "";
+
+  try {
+    const data = JSON.parse(rawText);
+
+    if (typeof data?.error === "string") return data.error;
+    if (typeof data?.message === "string") return data.message;
+    if (typeof data?.detail === "string") return data.detail;
+
+    if (Array.isArray(data?.detail)) {
+      return data.detail
+        .map((item) => item?.msg || item?.message || JSON.stringify(item))
+        .join(", ");
+    }
+
+    return JSON.stringify(data);
+  } catch {
+    return rawText;
+  }
+}
+
 async function imageUrlToBase64(imageUrl) {
   const res = await fetch(imageUrl, {
     method: "GET",
@@ -188,10 +210,20 @@ async function generateWithGemini(prompt, apiKey) {
     })
   });
 
-  const data = await geminiRes.json();
+  const rawText = await geminiRes.text();
+  let data = null;
+
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    data = null;
+  }
 
   if (!geminiRes.ok) {
-    const rawMessage = data?.error?.message || "Gagal menghubungi Gemini API.";
+    const rawMessage =
+      data?.error?.message ||
+      extractErrorMessage(rawText) ||
+      "Gagal menghubungi Gemini API.";
 
     return {
       success: false,
@@ -248,17 +280,22 @@ async function generateWithFal(prompt, falKey) {
     })
   });
 
+  const rawText = await falRes.text();
   let data = null;
 
   try {
-    data = await falRes.json();
+    data = JSON.parse(rawText);
   } catch {
     data = null;
   }
 
   if (!falRes.ok) {
     const rawMessage =
-      data?.detail || data?.error || data?.message || "Gagal menghubungi fal.ai.";
+      data?.detail ||
+      data?.error ||
+      data?.message ||
+      extractErrorMessage(rawText) ||
+      "Gagal menghubungi fal.ai.";
 
     return {
       success: false,
@@ -275,7 +312,7 @@ async function generateWithFal(prompt, falKey) {
     return {
       success: false,
       error: "fal.ai tidak mengembalikan URL gambar.",
-      rawError: data,
+      rawError: data || rawText,
       isQuota: false,
       provider: "fal"
     };
@@ -304,13 +341,13 @@ async function generateWithHuggingFace(prompt, hfToken) {
       headers: {
         Authorization: `Bearer ${hfToken}`,
         "Content-Type": "application/json",
-        Accept: "image/*"
+        Accept: "image/png"
       },
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          width: 1024,
-          height: 1024,
+          width: 768,
+          height: 768,
           num_inference_steps: 4
         },
         options: {
@@ -323,18 +360,10 @@ async function generateWithHuggingFace(prompt, hfToken) {
   const contentType = hfRes.headers.get("content-type") || "";
 
   if (!hfRes.ok) {
-    let rawMessage = "Gagal menghubungi Hugging Face.";
-
-    try {
-      const err = await hfRes.json();
-      rawMessage =
-        err?.error ||
-        err?.message ||
-        err?.detail ||
-        JSON.stringify(err);
-    } catch {
-      rawMessage = await hfRes.text();
-    }
+    const rawText = await hfRes.text();
+    const rawMessage =
+      extractErrorMessage(rawText) ||
+      "Gagal menghubungi Hugging Face.";
 
     return {
       success: false,
@@ -346,16 +375,14 @@ async function generateWithHuggingFace(prompt, hfToken) {
   }
 
   if (!contentType.startsWith("image/")) {
-    let rawMessage = "Hugging Face tidak mengembalikan gambar.";
-
-    try {
-      const text = await hfRes.text();
-      rawMessage = text || rawMessage;
-    } catch {}
+    const rawText = await hfRes.text();
+    const rawMessage =
+      extractErrorMessage(rawText) ||
+      "Hugging Face tidak mengembalikan gambar.";
 
     return {
       success: false,
-      error: cleanHuggingFaceError(rawMessage),
+      error: cleanHuggingFaceError(String(rawMessage)),
       rawError: rawMessage,
       isQuota: false,
       provider: "huggingface"
@@ -392,6 +419,7 @@ export async function POST(req) {
     }
 
     const finalPrompt = prompt.trim();
+
     const geminiKey = process.env.GEMINI_API_KEY;
     const falKey = process.env.FAL_KEY;
     const hfToken = process.env.HF_TOKEN;
