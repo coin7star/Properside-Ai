@@ -3160,3 +3160,25 @@ body {
     overflow: auto;
   }
 }
+
+@media (min-width: 900px) {
+  .chat-panel,
+  .chat-box,
+  .history-box,
+  .input-area {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .chat-box {
+    scroll-behavior: smooth;
+  }
+
+  .sidebar-body {
+    display: block;
+  }
+
+  .tool-toggle-btn {
+    display: none;
+  }
+}
