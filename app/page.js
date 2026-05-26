@@ -90,24 +90,33 @@ function buildPreviewHtml(language, code) {
 
   if (!rawCode) return "";
 
-  if (lang === "html" || lang === "xml" || looksLikeHtml(rawCode)) {
-    return rawCode.includes("<html")
-      ? rawCode
-      : `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
+  const baseStyle = `
     * { box-sizing: border-box; }
-    body {
+    html, body {
       margin: 0;
-      padding: 18px;
+      min-height: 100%;
       font-family: Arial, sans-serif;
       background: #ffffff;
       color: #111827;
     }
-  </style>
+    body {
+      padding: 18px;
+    }
+  `;
+
+  if (lang === "html" || lang === "xml" || looksLikeHtml(rawCode)) {
+    const lower = rawCode.toLowerCase();
+
+    if (lower.includes("<!doctype") || lower.includes("<html")) {
+      return rawCode;
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>${baseStyle}</style>
 </head>
 <body>
 ${rawCode}
@@ -122,17 +131,20 @@ ${rawCode}
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-${rawCode}
+    ${baseStyle}
+
+    ${rawCode}
   </style>
 </head>
 <body>
   <main class="preview-demo">
-    <h1>CSS Preview</h1>
-    <p>Ini contoh tampilan untuk melihat hasil CSS.</p>
+    <h1>CSS Live Preview</h1>
+    <p>Ini contoh HTML dummy untuk melihat efek CSS kamu.</p>
     <button>Contoh Button</button>
+
     <div class="card">
       <h2>Card Demo</h2>
-      <p>Kalau CSS kamu punya class khusus, tambahkan HTML di code block agar preview lebih akurat.</p>
+      <p>Kalau CSS kamu memakai class tertentu, minta AI buatkan HTML + CSS dalam satu file.</p>
     </div>
   </main>
 </body>
@@ -146,29 +158,40 @@ ${rawCode}
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      margin: 0;
-      padding: 18px;
-      font-family: Arial, sans-serif;
-      background: #ffffff;
-      color: #111827;
-    }
+    ${baseStyle}
+
     #app {
-      min-height: 140px;
+      min-height: 160px;
       border: 1px dashed #cbd5e1;
       border-radius: 12px;
       padding: 16px;
     }
+
+    pre {
+      white-space: pre-wrap;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 12px;
+      border-radius: 12px;
+    }
   </style>
 </head>
 <body>
-  <div id="app">JavaScript preview siap. Script akan berjalan di sandbox.</div>
+  <div id="app">JavaScript Live Preview siap.</div>
 
   <script>
+    window.addEventListener("error", function(event) {
+      const pre = document.createElement("pre");
+      pre.textContent = "JS Error: " + event.message;
+      document.body.appendChild(pre);
+    });
+
     try {
 ${rawCode}
     } catch (error) {
-      document.body.innerHTML += '<pre style="color:red;white-space:pre-wrap;">' + error.message + '</pre>';
+      const pre = document.createElement("pre");
+      pre.textContent = "JS Error: " + error.message;
+      document.body.appendChild(pre);
     }
   </script>
 </body>
@@ -182,14 +205,14 @@ ${rawCode}
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    ${baseStyle}
+
     body {
-      margin: 0;
-      padding: 18px;
       display: grid;
       place-items: center;
       min-height: 100vh;
-      background: #ffffff;
     }
+
     svg {
       max-width: 100%;
       height: auto;
@@ -221,6 +244,7 @@ function isPreviewableCode(language, code) {
 function CodePreviewBlock({ language, code, blockId }) {
   const [showPreview, setShowPreview] = useState(false);
   const [bigPreview, setBigPreview] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const previewable = isPreviewableCode(language, code);
   const previewHtml = previewable ? buildPreviewHtml(language, code) : "";
@@ -231,6 +255,15 @@ function CodePreviewBlock({ language, code, blockId }) {
     } catch {
       alert("Gagal copy code.");
     }
+  }
+
+  function togglePreview() {
+    setShowPreview((prev) => !prev);
+    setRefreshKey((prev) => prev + 1);
+  }
+
+  function refreshPreview() {
+    setRefreshKey((prev) => prev + 1);
   }
 
   return (
@@ -246,11 +279,8 @@ function CodePreviewBlock({ language, code, blockId }) {
           }}
         >
           {previewable && (
-            <button
-              className="copy-btn"
-              onClick={() => setShowPreview((prev) => !prev)}
-            >
-              {showPreview ? "Hide Preview" : "Preview"}
+            <button className="copy-btn" onClick={togglePreview}>
+              {showPreview ? "Tutup Live" : "Live Preview"}
             </button>
           )}
 
@@ -260,58 +290,66 @@ function CodePreviewBlock({ language, code, blockId }) {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gap: 12
-        }}
-      >
-        <pre>
-          <code>{code}</code>
-        </pre>
+      <pre>
+        <code>{code}</code>
+      </pre>
 
-        {showPreview && previewable && (
+      {showPreview && previewable && (
+        <div
+          style={{
+            marginTop: 12,
+            background: "#0f0f11",
+            border: "1px solid #27272a",
+            borderRadius: 14,
+            overflow: "hidden"
+          }}
+        >
           <div
             style={{
-              background: "#0f0f11",
-              border: "1px solid #27272a",
-              borderRadius: 14,
-              overflow: "hidden"
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 8,
+              alignItems: "center",
+              padding: "10px 12px",
+              borderBottom: "1px solid #27272a",
+              background: "#18181b",
+              flexWrap: "wrap"
             }}
           >
+            <small style={{ color: "#a1a1aa" }}>Live HTML Preview</small>
+
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
                 gap: 8,
-                alignItems: "center",
-                padding: "10px 12px",
-                borderBottom: "1px solid #27272a",
-                background: "#18181b"
+                flexWrap: "wrap"
               }}
             >
-              <small style={{ color: "#a1a1aa" }}>Live Preview</small>
+              <button className="copy-btn" onClick={refreshPreview}>
+                Refresh
+              </button>
 
               <button className="copy-btn" onClick={() => setBigPreview(true)}>
                 Buka Besar
               </button>
             </div>
-
-            <iframe
-              title={`Preview ${blockId}`}
-              sandbox="allow-scripts"
-              srcDoc={previewHtml}
-              style={{
-                width: "100%",
-                height: 320,
-                border: "none",
-                background: "#fff",
-                display: "block"
-              }}
-            />
           </div>
-        )}
-      </div>
+
+          <iframe
+            key={`preview-${blockId}-${refreshKey}`}
+            title={`Live Preview ${blockId}`}
+            sandbox="allow-scripts allow-forms allow-modals"
+            srcDoc={previewHtml}
+            style={{
+              width: "100%",
+              height: 360,
+              border: "none",
+              background: "#fff",
+              display: "block"
+            }}
+          />
+        </div>
+      )}
 
       {previewable && (
         <small
@@ -322,8 +360,8 @@ function CodePreviewBlock({ language, code, blockId }) {
             lineHeight: 1.5
           }}
         >
-          Preview mendukung HTML, CSS, JavaScript, dan SVG. React/Next.js belum
-          bisa dirender langsung tanpa compiler.
+          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Untuk hasil
+          terbaik, minta AI buat “1 file HTML lengkap”.
         </small>
       )}
 
@@ -334,7 +372,7 @@ function CodePreviewBlock({ language, code, blockId }) {
             position: "fixed",
             inset: 0,
             zIndex: 10000,
-            background: "rgba(0, 0, 0, 0.9)",
+            background: "rgba(0, 0, 0, 0.92)",
             padding: 16,
             display: "grid",
             gridTemplateRows: "auto 1fr",
@@ -351,26 +389,47 @@ function CodePreviewBlock({ language, code, blockId }) {
               background: "#18181b",
               border: "1px solid #27272a",
               borderRadius: 14,
-              padding: 10
+              padding: 10,
+              flexWrap: "wrap"
             }}
           >
-            <strong style={{ color: "#fff" }}>Preview Besar</strong>
+            <strong style={{ color: "#fff" }}>Live Preview Besar</strong>
 
-            <button
-              onClick={() => setBigPreview(false)}
+            <div
               style={{
-                width: "auto",
-                background: "#27272a",
-                border: "1px solid #3f3f46"
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap"
               }}
             >
-              ✕ Tutup
-            </button>
+              <button
+                onClick={refreshPreview}
+                style={{
+                  width: "auto",
+                  background: "#27272a",
+                  border: "1px solid #3f3f46"
+                }}
+              >
+                Refresh
+              </button>
+
+              <button
+                onClick={() => setBigPreview(false)}
+                style={{
+                  width: "auto",
+                  background: "#7f1d1d",
+                  border: "1px solid #991b1b"
+                }}
+              >
+                ✕ Tutup
+              </button>
+            </div>
           </div>
 
           <iframe
-            title={`Big Preview ${blockId}`}
-            sandbox="allow-scripts"
+            key={`big-preview-${blockId}-${refreshKey}`}
+            title={`Big Live Preview ${blockId}`}
+            sandbox="allow-scripts allow-forms allow-modals"
             srcDoc={previewHtml}
             onClick={(e) => e.stopPropagation()}
             style={{
@@ -723,7 +782,9 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   async function deleteSession(sessionId) {
-    const ok = confirm("Hapus history chat ini? File gambar di Supabase Storage juga ikut dihapus.");
+    const ok = confirm(
+      "Hapus history chat ini? File gambar di Supabase Storage juga ikut dihapus."
+    );
 
     if (!ok) return;
 
@@ -1268,7 +1329,9 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   async function deleteImageHistoryItem(item) {
     if (!item?.id || !user?.email) return;
 
-    const ok = confirm("Hapus gambar ini dari history? File di Supabase Storage juga ikut dihapus.");
+    const ok = confirm(
+      "Hapus gambar ini dari history? File di Supabase Storage juga ikut dihapus."
+    );
 
     if (!ok) return;
 
