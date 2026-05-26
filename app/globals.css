@@ -3182,3 +3182,181 @@ body {
     display: none;
   }
 }
+
+/* =====================================================
+   FINAL DESKTOP CHAT LAYOUT FIX
+   Tempel di paling bawah app/globals.css
+===================================================== */
+
+@media (min-width: 900px) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden !important;
+  }
+
+  .workspace {
+    width: 100%;
+    height: 100vh;
+    display: grid !important;
+    grid-template-columns: 300px minmax(0, 1fr) !important;
+    overflow: hidden !important;
+  }
+
+  .sidebar {
+    width: 300px;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid #27272a;
+    border-bottom: none;
+  }
+
+  .sidebar-body {
+    display: block !important;
+  }
+
+  .tool-toggle-btn {
+    display: none !important;
+  }
+
+  .main-area {
+    width: 100%;
+    height: 100vh;
+    min-width: 0;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    overflow: hidden !important;
+  }
+
+  .topbar {
+    height: 102px;
+    flex-shrink: 0;
+  }
+
+  .chat-panel {
+    width: 100%;
+    height: calc(100vh - 102px);
+    min-height: 0;
+    display: grid !important;
+    grid-template-columns: 360px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto auto !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  /* Child 1 = History Chat */
+  .chat-panel > .history-box {
+    grid-column: 1 !important;
+    grid-row: 1 / 4 !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    border-right: 1px solid #27272a;
+    border-bottom: none !important;
+    padding: 16px;
+  }
+
+  /* Child 2 = Chat Box */
+  .chat-panel > .chat-box {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 22px;
+    border-bottom: 1px solid #27272a;
+  }
+
+  /* Child 3 = Model AI Chat + Upload Gambar */
+  .chat-panel > div:nth-of-type(3) {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    width: 100%;
+    max-height: 190px;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: #0f0f11 !important;
+    border-top: none !important;
+    border-bottom: 1px solid #27272a !important;
+    padding: 12px 16px !important;
+  }
+
+  /* Child 4 = Input Area */
+  .chat-panel > .input-area {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+    width: 100%;
+    min-height: 96px;
+    background: #0f0f11 !important;
+    border-top: none !important;
+    padding: 12px 16px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 180px !important;
+    gap: 12px !important;
+    align-items: stretch !important;
+    position: relative !important;
+    bottom: auto !important;
+    z-index: 10;
+  }
+
+  .input-area textarea {
+    width: 100%;
+    min-height: 72px;
+    max-height: 120px;
+    overflow-y: auto;
+    resize: none;
+  }
+
+  .input-area button {
+    width: 180px !important;
+    height: 72px;
+    align-self: stretch;
+  }
+
+  .message {
+    max-width: min(900px, 86%);
+  }
+
+  .user-message {
+    margin-left: auto;
+  }
+
+  .ai-message {
+    margin-right: auto;
+  }
+
+  .empty-chat {
+    min-height: 100%;
+  }
+
+  .history-list {
+    max-height: calc(100vh - 260px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+  }
+
+  .history-item {
+    width: 100%;
+  }
+
+  .history-item button {
+    min-width: 0;
+  }
+
+  .code-block pre {
+    max-height: 360px;
+    overflow: auto;
+  }
+
+  .code-block iframe {
+    max-height: calc(100vh - 260px);
+  }
+}
