@@ -479,6 +479,8 @@ export default function Home() {
   const [imageHistory, setImageHistory] = useState([]);
   const [imageHistoryLoading, setImageHistoryLoading] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
+  const [savedImageKeys, setSavedImageKeys] = useState([]);
+  const [imageSaveInfo, setImageSaveInfo] = useState("");
 
   const filteredSessions = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
@@ -979,7 +981,9 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setTempMessages([]);
     setGeneratedImage(null);
     setImageError("");
+    setImageSaveInfo("");
     setImageHistory([]);
+    setSavedImageKeys([]);
     clearUploadedImage();
     clearChatImage();
     closePreviewImage();
@@ -1003,6 +1007,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setUploadedImagePreview(previewUrl);
     setGeneratedImage(null);
     setImageError("");
+    setImageSaveInfo("");
 
     if (!["auto", "gemini", "huggingface"].includes(imageProvider)) {
       setImageProvider("huggingface");
@@ -1020,6 +1025,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setImagePrompt("");
     setGeneratedImage(null);
     setImageError("");
+    setImageSaveInfo("");
     setImageProvider("huggingface");
   }
 
@@ -1029,6 +1035,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     try {
       setImageLoading(true);
       setImageError("");
+      setImageSaveInfo("");
       setGeneratedImage(null);
 
       let res;
@@ -1090,16 +1097,41 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     document.body.removeChild(link);
   }
 
+  function getGeneratedImageKey(image = generatedImage) {
+    if (!image?.base64) return "";
+
+    return [
+      image.provider || imageProvider || "",
+      image.edited ? "edit" : "generate",
+      image.prompt || imagePrompt || "",
+      image.base64.slice(0, 120)
+    ].join("|");
+  }
+
+  function isGeneratedImageAlreadySaved() {
+    const key = getGeneratedImageKey();
+
+    if (!key) return false;
+
+    return savedImageKeys.includes(key);
+  }
+
   async function loadImageHistory(email = user?.email) {
     if (!email) return;
 
     try {
       setImageHistoryLoading(true);
 
-      const res = await fetch(`/api/image-history?user_email=${encodeURIComponent(email)}`);
+      const res = await fetch(
+        `/api/image-history?user_email=${encodeURIComponent(email)}&t=${Date.now()}`,
+        { cache: "no-store" }
+      );
+
       const data = await res.json();
 
-      if (data?.success) setImageHistory(data?.data || []);
+      if (data?.success) {
+        setImageHistory(data?.data || []);
+      }
     } catch {
       console.log("Gagal load image history.");
     } finally {
@@ -1110,9 +1142,17 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   async function saveGeneratedImage() {
     if (!generatedImage?.base64 || !user?.email || imageSaving) return;
 
+    const imageKey = getGeneratedImageKey(generatedImage);
+
+    if (imageKey && savedImageKeys.includes(imageKey)) {
+      setImageSaveInfo("Gambar ini sudah tersimpan di history.");
+      return;
+    }
+
     try {
       setImageSaving(true);
       setImageError("");
+      setImageSaveInfo("");
 
       const res = await fetch("/api/image-history", {
         method: "POST",
@@ -1134,14 +1174,34 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         return;
       }
 
-      await loadImageHistory(user.email);
+      if (imageKey) {
+        setSavedImageKeys((prev) => {
+          if (prev.includes(imageKey)) return prev;
+          return [...prev, imageKey];
+        });
+      }
+
+      const savedItem = data?.data || data?.item || data?.result || data?.image || null;
+
+      if (savedItem?.id && savedItem?.image_url) {
+        setImageHistory((prev) => {
+          const exists = prev.some((item) => item.id === savedItem.id);
+
+          if (exists) return prev;
+
+          return [savedItem, ...prev];
+        });
+      } else {
+        await loadImageHistory(user.email);
+      }
+
+      setImageSaveInfo("Gambar berhasil disimpan ke history.");
     } catch (error) {
       setImageError(error?.message || "Gagal menyimpan gambar.");
     } finally {
       setImageSaving(false);
     }
   }
-
   async function deleteImageHistoryItem(item) {
     if (!item?.id || !user?.email) return;
 
@@ -1530,8 +1590,19 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 {generatedImage?.dataUrl && <button onClick={downloadGeneratedImage}>Download Image</button>}
 
                 {generatedImage?.base64 && (
-                  <button onClick={saveGeneratedImage} disabled={imageSaving} style={{ width: "auto", background: "#16a34a" }}>
-                    {imageSaving ? "Saving..." : "Save to History"}
+                  <button
+                    onClick={saveGeneratedImage}
+                    disabled={imageSaving || isGeneratedImageAlreadySaved()}
+                    style={{
+                      width: "auto",
+                      background: isGeneratedImageAlreadySaved() ? "#3f3f46" : "#16a34a"
+                    }}
+                  >
+                    {imageSaving
+                      ? "Saving..."
+                      : isGeneratedImageAlreadySaved()
+                      ? "Sudah Tersimpan"
+                      : "Save to History"}
                   </button>
                 )}
 
@@ -1560,6 +1631,25 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
             {renderImageErrorBox()}
 
+            {imageSaveInfo && (
+              <div
+                style={{
+                  background: imageSaveInfo.includes("berhasil")
+                    ? "rgba(22, 163, 74, 0.15)"
+                    : "rgba(37, 99, 235, 0.15)",
+                  color: imageSaveInfo.includes("berhasil") ? "#86efac" : "#bfdbfe",
+                  border: imageSaveInfo.includes("berhasil")
+                    ? "1px solid rgba(34, 197, 94, 0.3)"
+                    : "1px solid rgba(59, 130, 246, 0.3)",
+                  borderRadius: 14,
+                  padding: 14,
+                  lineHeight: 1.6
+                }}
+              >
+                {imageSaveInfo}
+              </div>
+            )}
+
             {generatedImage?.dataUrl && (
               <div style={{ marginTop: 4, background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -1576,8 +1666,19 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     </button>
 
                     {generatedImage?.base64 && (
-                      <button onClick={saveGeneratedImage} disabled={imageSaving} style={{ width: "auto", background: "#16a34a" }}>
-                        {imageSaving ? "Saving..." : "Save"}
+                      <button
+                        onClick={saveGeneratedImage}
+                        disabled={imageSaving || isGeneratedImageAlreadySaved()}
+                        style={{
+                          width: "auto",
+                          background: isGeneratedImageAlreadySaved() ? "#3f3f46" : "#16a34a"
+                        }}
+                      >
+                        {imageSaving
+                          ? "Saving..."
+                          : isGeneratedImageAlreadySaved()
+                          ? "Sudah Tersimpan"
+                          : "Save"}
                       </button>
                     )}
                   </div>
