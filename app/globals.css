@@ -2973,3 +2973,190 @@ body {
     width: 100%;
   }
 }
+
+/* =========================
+   RESPONSIVE DESKTOP FIX
+   Properside AI Workspace
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.workspace {
+  min-height: 100vh;
+}
+
+/* Desktop / Laptop */
+@media (min-width: 900px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .workspace {
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .sidebar {
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid #27272a;
+  }
+
+  .main-area {
+    height: 100vh;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .topbar {
+    flex-shrink: 0;
+  }
+
+  .chat-panel {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .history-box {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    border-right: 1px solid #27272a;
+  }
+
+  .chat-box {
+    grid-column: 2;
+    grid-row: 1;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 24px;
+  }
+
+  .input-area {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: #0f0f11;
+    border-top: 1px solid #27272a;
+  }
+
+  .input-area textarea {
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .message {
+    max-width: 920px;
+  }
+
+  .user-message {
+    margin-left: auto;
+  }
+
+  .ai-message {
+    margin-right: auto;
+  }
+
+  .placeholder-panel {
+    height: 100%;
+    overflow-y: auto;
+  }
+}
+
+/* Tablet */
+@media (min-width: 700px) and (max-width: 899px) {
+  .workspace {
+    min-height: 100vh;
+  }
+
+  .main-area {
+    min-height: 100vh;
+  }
+
+  .chat-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  .chat-box {
+    min-height: 55vh;
+  }
+
+  .input-area {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: #0f0f11;
+    border-top: 1px solid #27272a;
+  }
+}
+
+/* Mobile tetap nyaman */
+@media (max-width: 699px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .workspace {
+    min-height: 100vh;
+  }
+
+  .chat-panel {
+    min-height: calc(100vh - 80px);
+  }
+
+  .chat-box {
+    min-height: 50vh;
+  }
+
+  .input-area {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    background: #0f0f11;
+    border-top: 1px solid #27272a;
+  }
+
+  .message {
+    max-width: 100%;
+  }
+}
+
+/* Live preview biar tidak kepanjangan di desktop */
+@media (min-width: 900px) {
+  .code-block iframe {
+    max-height: calc(100vh - 260px);
+  }
+
+  .code-block pre {
+    max-height: 420px;
+    overflow: auto;
+  }
+}
