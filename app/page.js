@@ -50,6 +50,7 @@ function MessageContent({ text }) {
             <div className="code-block" key={index}>
               <div className="code-header">
                 <span>{language}</span>
+
                 <button
                   className="copy-btn"
                   onClick={() => navigator.clipboard.writeText(code)}
@@ -157,6 +158,8 @@ function MessageContent({ text }) {
 export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [activeTool, setActiveTool] = useState("home");
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
 
@@ -178,19 +181,56 @@ export default function Home() {
   const [imageProvider, setImageProvider] = useState("auto");
 
   useEffect(() => {
-    const client = getSupabase();
-    setSupabase(client);
+    async function initAuth() {
+      try {
+        const client = getSupabase();
 
-    client.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
-    });
+        if (!client) {
+          setAuthError(
+            "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
+          );
+          setAuthReady(true);
+          return;
+        }
 
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+        setSupabase(client);
+
+        const { data, error } = await client.auth.getUser();
+
+        if (error) {
+          console.log("Gagal membaca user:", error.message);
+        }
+
+        setUser(data?.user || null);
+
+        const { data: listener } = client.auth.onAuthStateChange(
+          (_event, session) => {
+            setUser(session?.user || null);
+          }
+        );
+
+        setAuthReady(true);
+
+        return () => {
+          listener?.subscription?.unsubscribe();
+        };
+      } catch (error) {
+        console.error("Auth init error:", error);
+        setAuthError("Terjadi error saat menyiapkan login Supabase.");
+        setAuthReady(true);
+      }
+    }
+
+    let unsubscribe;
+
+    initAuth().then((cleanup) => {
+      unsubscribe = cleanup;
     });
 
     return () => {
-      data?.subscription?.unsubscribe();
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
     };
   }, []);
 
@@ -390,12 +430,21 @@ export default function Home() {
   }
 
   async function loginGoogle() {
-    if (!supabase) return;
+    if (!supabase) {
+      alert(
+        "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
+      );
+      return;
+    }
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account"
+        }
       }
     });
   }
@@ -855,8 +904,13 @@ export default function Home() {
                 flexWrap: "wrap"
               }}
             >
-              <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
-              <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
+              <button onClick={() => setActiveTool("chat")}>
+                Mulai Chat AI
+              </button>
+
+              <button onClick={() => setActiveTool("image")}>
+                Buka AI Image
+              </button>
             </div>
           </div>
         </section>
@@ -1045,6 +1099,20 @@ export default function Home() {
     );
   }
 
+  if (!authReady) {
+    return (
+      <main className="login-page">
+        <div className="login-card">
+          <div className="brand-logo">P</div>
+
+          <h1>Properside AI</h1>
+
+          <p>Sedang menyiapkan login...</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!user) {
     return (
       <main className="login-page">
@@ -1057,6 +1125,21 @@ export default function Home() {
             Login dengan Google untuk menyimpan history chat dan menggunakan
             workspace AI.
           </p>
+
+          {authError && (
+            <p
+              style={{
+                color: "#fca5a5",
+                background: "rgba(220, 38, 38, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 14,
+                padding: 12,
+                marginTop: 12
+              }}
+            >
+              {authError}
+            </p>
+          )}
 
           <button onClick={loginGoogle}>Login dengan Google</button>
         </div>
