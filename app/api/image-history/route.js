@@ -98,7 +98,8 @@ async function uploadAiImageToStorage({
 
   return {
     image_url: `${supabaseUrl}/storage/v1/object/public/${AI_IMAGE_BUCKET}/${data.path}`,
-    image_storage_path: data.path
+    image_storage_path: data.path,
+    storage_path: data.path
   };
 }
 
@@ -191,17 +192,24 @@ export async function POST(req) {
       image_type
     });
 
+    const insertPayload = {
+      user_email,
+      prompt,
+      provider,
+      image_type,
+      image_url: uploaded.image_url,
+      mime_type: mimeType,
+
+      // Kolom baru
+      image_storage_path: uploaded.image_storage_path,
+
+      // Kolom lama yang di tabel kamu masih NOT NULL
+      storage_path: uploaded.storage_path
+    };
+
     const { data, error } = await supabase
       .from("ai_images")
-      .insert({
-        user_email,
-        prompt,
-        provider,
-        image_type,
-        image_url: uploaded.image_url,
-        image_storage_path: uploaded.image_storage_path,
-        mime_type: mimeType
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
@@ -254,7 +262,7 @@ export async function DELETE(req) {
 
     const { data: imageData, error: findError } = await supabase
       .from("ai_images")
-      .select("id, image_url, image_storage_path")
+      .select("id, image_url, image_storage_path, storage_path")
       .eq("id", id)
       .eq("user_email", user_email)
       .single();
@@ -272,6 +280,7 @@ export async function DELETE(req) {
 
     const storagePath =
       imageData?.image_storage_path ||
+      imageData?.storage_path ||
       getStoragePathFromPublicUrl(imageData?.image_url);
 
     if (storagePath) {
