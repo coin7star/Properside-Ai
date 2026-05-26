@@ -306,6 +306,24 @@ function buildGroqMessages({
   ];
 }
 
+function normalizeStoragePathsFromMessages(messages = []) {
+  const paths = [];
+
+  for (const msg of messages) {
+    if (msg?.image_storage_path) {
+      paths.push(msg.image_storage_path);
+    }
+
+    if (Array.isArray(msg?.image_storage_paths)) {
+      for (const path of msg.image_storage_paths) {
+        if (path) paths.push(path);
+      }
+    }
+  }
+
+  return [...new Set(paths)];
+}
+
 export async function GET(req) {
   try {
     const supabase = getSupabaseAdmin();
@@ -384,8 +402,7 @@ export async function POST(req) {
 
     const hasImage = imageFiles.length > 0;
 
-    const visionModel =
-      process.env.GROQ_VISION_MODEL || DEFAULT_VISION_MODEL;
+    const visionModel = process.env.GROQ_VISION_MODEL || DEFAULT_VISION_MODEL;
 
     const selectedModel = hasImage ? visionModel : selectedTextModel;
 
@@ -630,19 +647,88 @@ export async function DELETE(req) {
       return jsonResponse({ error: "Data delete belum lengkap." }, 400);
     }
 
-    const { error } = await supabase
+    const { data: messages, error: messagesError } = await supabase
+      .from("chat_messages")
+      .select("id, image_storage_path, image_storage_paths")
+      .eq("session_id", session_id)
+      .eq("user_email", user_email);
+
+    if (messagesError) {
+      return jsonResponse(
+        {
+          success: false,
+          error:
+            "Gagal membaca file gambar chat sebelum delete: " +
+            messagesError.message
+        },
+        500
+      );
+    }
+
+    const storagePaths = normalizeStoragePathsFromMessages(messages || []);
+
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from(CHAT_IMAGE_BUCKET)
+        .remove(storagePaths);
+
+      if (storageError) {
+        return jsonResponse(
+          {
+            success: false,
+            error:
+              "Gagal hapus gambar dari Supabase Storage: " +
+              storageError.message
+          },
+          500
+        );
+      }
+    }
+
+    const { error: deleteMessagesError } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("session_id", session_id)
+      .eq("user_email", user_email);
+
+    if (deleteMessagesError) {
+      return jsonResponse(
+        {
+          success: false,
+          error:
+            "Gagal hapus pesan chat dari database: " +
+            deleteMessagesError.message
+        },
+        500
+      );
+    }
+
+    const { error: deleteSessionError } = await supabase
       .from("chat_sessions")
       .delete()
       .eq("id", session_id)
       .eq("user_email", user_email);
 
+    if (deleteSessionError) {
+      return jsonResponse(
+        {
+          success: false,
+          error:
+            "Pesan chat sudah terhapus, tapi session gagal dihapus: " +
+            deleteSessionError.message
+        },
+        500
+      );
+    }
+
     return jsonResponse({
-      success: !error,
-      error
+      success: true,
+      deleted_storage_files: storagePaths.length
     });
   } catch (error) {
     return jsonResponse(
       {
+        success: false,
         error: error?.message || "Gagal hapus chat."
       },
       500
