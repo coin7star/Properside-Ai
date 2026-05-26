@@ -121,6 +121,14 @@ function cleanHuggingFaceError(message = "") {
     return "Model Hugging Face tidak tersedia. Coba ganti HF_IMAGE_MODEL.";
   }
 
+  if (
+    lower.includes("1016") ||
+    lower.includes("dns") ||
+    lower.includes("origin")
+  ) {
+    return "Endpoint Hugging Face tidak bisa diakses dari Cloudflare. Route sudah dipindah ke router.huggingface.co, coba redeploy ulang.";
+  }
+
   return message || "Gagal generate gambar dari Hugging Face.";
 }
 
@@ -331,11 +339,11 @@ async function generateWithFal(prompt, falKey) {
   };
 }
 
-async function generateWithHuggingFace(prompt, hfToken) {
+async function callHuggingFaceRouter(prompt, hfToken) {
   const model = getHuggingFaceModel();
 
-  const hfRes = await fetch(
-    `https://api-inference.huggingface.co/models/${model}`,
+  const res = await fetch(
+    `https://router.huggingface.co/hf-inference/models/${model}`,
     {
       method: "POST",
       headers: {
@@ -348,7 +356,8 @@ async function generateWithHuggingFace(prompt, hfToken) {
         parameters: {
           width: 768,
           height: 768,
-          num_inference_steps: 4
+          num_inference_steps: 4,
+          guidance_scale: 7.5
         },
         options: {
           wait_for_model: true
@@ -357,13 +366,33 @@ async function generateWithHuggingFace(prompt, hfToken) {
     }
   );
 
+  return res;
+}
+
+async function generateWithHuggingFace(prompt, hfToken) {
+  let hfRes;
+
+  try {
+    hfRes = await callHuggingFaceRouter(prompt, hfToken);
+  } catch (error) {
+    const msg = error?.message || "Gagal fetch ke Hugging Face.";
+
+    return {
+      success: false,
+      error: cleanHuggingFaceError(msg),
+      rawError: msg,
+      isQuota: isQuotaError(msg),
+      provider: "huggingface"
+    };
+  }
+
   const contentType = hfRes.headers.get("content-type") || "";
 
   if (!hfRes.ok) {
     const rawText = await hfRes.text();
     const rawMessage =
       extractErrorMessage(rawText) ||
-      "Gagal menghubungi Hugging Face.";
+      `Hugging Face error status ${hfRes.status}`;
 
     return {
       success: false,
