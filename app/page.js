@@ -322,6 +322,7 @@ export default function Home() {
 
   const [imageHistory, setImageHistory] = useState([]);
   const [imageHistoryLoading, setImageHistoryLoading] = useState(false);
+  const [imageRefreshInfo, setImageRefreshInfo] = useState("");
   const [imageSaving, setImageSaving] = useState(false);
   const [savedImageKeys, setSavedImageKeys] = useState([]);
   const [imageSaveInfo, setImageSaveInfo] = useState("");
@@ -794,15 +795,30 @@ export default function Home() {
 
   async function loadImageHistory(email = user?.email) {
     if (!email) return;
+
     try {
       setImageHistoryLoading(true);
-      const res = await fetch(`/api/image-history?user_email=${encodeURIComponent(email)}&t=${Date.now()}`, { cache: "no-store" });
+      setImageRefreshInfo("Sedang refresh history gambar... tunggu beberapa detik ya.");
+
+      const res = await fetch(
+        `/api/image-history?user_email=${encodeURIComponent(email)}&t=${Date.now()}`,
+        { cache: "no-store" }
+      );
+
       const data = await res.json();
-      if (data?.success) setImageHistory(data?.data || []);
+
+      if (data?.success) {
+        setImageHistory(data?.data || []);
+      }
     } catch {
       console.log("Gagal load image history.");
+      setImageRefreshInfo("Gagal refresh history gambar. Coba ulangi lagi.");
     } finally {
       setImageHistoryLoading(false);
+
+      setTimeout(() => {
+        setImageRefreshInfo("");
+      }, 3500);
     }
   }
 
@@ -1055,7 +1071,7 @@ export default function Home() {
                 <button onClick={() => loadImageHistory(user.email)} disabled={imageHistoryLoading} style={{ width: "auto", background: imageHistoryLoading ? "#3f3f46" : "#18181b", border: "1px solid #2f2f35" }}>{imageHistoryLoading ? "Merefresh..." : "Refresh"}</button>
               </div>
 
-              {imageHistoryLoading && <div style={{ background: "rgba(37, 99, 235, 0.15)", color: "#bfdbfe", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: 14, padding: 12, lineHeight: 1.6 }}>Sedang refresh history gambar... tunggu beberapa detik ya.</div>}
+              {imageRefreshInfo && <div style={{ background: "rgba(37, 99, 235, 0.15)", color: "#bfdbfe", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: 14, padding: 12, lineHeight: 1.6 }}>{imageRefreshInfo}</div>}
 
               {imageHistory.length === 0 ? (
                 <div style={{ border: "1px dashed #3f3f46", borderRadius: 18, padding: 18, color: "#a1a1aa", textAlign: "center", lineHeight: 1.6 }}>Belum ada history gambar. Generate/edit gambar lalu klik Save to History.</div>
