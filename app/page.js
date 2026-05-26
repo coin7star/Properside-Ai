@@ -569,6 +569,14 @@ export default function Home() {
     setUploadedImagePreview("");
   }
 
+  function resetImageTool() {
+    clearUploadedImage();
+    setImagePrompt("");
+    setGeneratedImage(null);
+    setImageError("");
+    setImageProvider("huggingface");
+  }
+
   async function generateImage() {
     if (!imagePrompt.trim() || imageLoading) return;
 
@@ -581,16 +589,9 @@ export default function Home() {
       let data;
 
       if (uploadedImageFile) {
-        if (!["auto", "gemini", "huggingface"].includes(imageProvider)) {
-          setImageError(
-            "Fitur edit gambar saat ini support Auto, Gemini, atau Hugging Face."
-          );
-          return;
-        }
-
         const formData = new FormData();
         formData.append("prompt", imagePrompt.trim());
-        formData.append("provider", imageProvider);
+        formData.append("provider", "replicate");
         formData.append("image", uploadedImageFile);
 
         res = await fetch("/api/image-edit", {
@@ -628,7 +629,7 @@ export default function Home() {
           data?.image || ""
         }`,
         provider: data?.provider || imageProvider,
-        edited: !!data?.edited
+        edited: !!uploadedImageFile || !!data?.edited
       });
     } catch (error) {
       setImageError(
@@ -646,6 +647,8 @@ export default function Home() {
       generatedImage?.mimeType?.includes("jpeg") ||
       generatedImage?.mimeType?.includes("jpg")
         ? "jpg"
+        : generatedImage?.mimeType?.includes("webp")
+        ? "webp"
         : "png";
 
     const link = document.createElement("a");
@@ -667,6 +670,7 @@ export default function Home() {
     if (provider === "gemini") return "Gemini";
     if (provider === "fal") return "fal.ai";
     if (provider === "huggingface") return "Hugging Face";
+    if (provider === "replicate") return "Replicate";
     return "Auto";
   }
 
@@ -709,6 +713,46 @@ export default function Home() {
   }
 
   function renderImageTool() {
+    const isEditMode = !!uploadedImageFile;
+
+    const quickPrompts = isEditMode
+      ? [
+          {
+            label: "Ganti Background",
+            text: "Ganti background menjadi laut tropis yang cerah, pertahankan objek utama tetap natural"
+          },
+          {
+            label: "Style Anime",
+            text: "Ubah gambar ini menjadi style anime cinematic, warna cerah, detail tinggi"
+          },
+          {
+            label: "Cyberpunk",
+            text: "Ubah suasana gambar menjadi cyberpunk malam hari dengan lampu neon biru dan ungu"
+          },
+          {
+            label: "Lebih HD",
+            text: "Buat gambar ini terlihat lebih tajam, lebih detail, lighting lebih bagus, tetap natural"
+          }
+        ]
+      : [
+          {
+            label: "Cyberpunk Car",
+            text: "Buat gambar mobil sport cyberpunk di jalan kota malam, neon lights, cinematic, ultra detail"
+          },
+          {
+            label: "Mascot Logo",
+            text: "Buat ilustrasi logo maskot kucing lucu memakai hoodie biru, gaya modern flat vector, background putih"
+          },
+          {
+            label: "Anime Poster",
+            text: "Buat poster anime fantasy seorang pendekar wanita memegang pedang bercahaya di hutan malam"
+          },
+          {
+            label: "Realistic Cat",
+            text: "Buat gambar kucing lucu realistis, mata besar, lighting studio, ultra detail"
+          }
+        ];
+
     return (
       <section className="placeholder-panel">
         <div
@@ -719,26 +763,59 @@ export default function Home() {
             textAlign: "left"
           }}
         >
-          <div className="placeholder-icon">🖼️</div>
-
-          <h2 style={{ textAlign: "center" }}>AI Image Generator</h2>
-
-          <p style={{ textAlign: "center" }}>
-            Buat gambar dari teks atau upload gambar lalu minta AI mengubahnya
-            sesuai prompt.
-          </p>
-
           <div
             style={{
-              marginTop: 18,
-              display: "grid",
-              gap: 12
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap"
             }}
           >
             <div>
-              <strong style={{ display: "block", marginBottom: 10 }}>
-                Pilih AI Model
-              </strong>
+              <div className="placeholder-icon">🖼️</div>
+
+              <h2 style={{ marginBottom: 8 }}>AI Image Studio</h2>
+
+              <p style={{ margin: 0 }}>
+                Buat gambar dari teks atau upload gambar lalu edit memakai AI.
+              </p>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid #2f2f35",
+                background: isEditMode
+                  ? "rgba(37, 99, 235, 0.18)"
+                  : "rgba(24, 24, 27, 0.95)",
+                color: "#fff",
+                borderRadius: 999,
+                padding: "10px 14px",
+                fontSize: 14
+              }}
+            >
+              {isEditMode ? "Mode: Edit Image" : "Mode: Text to Image"}
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 20,
+              display: "grid",
+              gap: 16
+            }}
+          >
+            <div
+              style={{
+                background: "#101014",
+                border: "1px solid #27272a",
+                borderRadius: 22,
+                padding: 16,
+                display: "grid",
+                gap: 12
+              }}
+            >
+              <strong>Pilih Mode AI</strong>
 
               <div
                 style={{
@@ -747,63 +824,119 @@ export default function Home() {
                   flexWrap: "wrap"
                 }}
               >
-                {[
-                  { id: "huggingface", name: "Hugging Face" },
-                  { id: "auto", name: "Auto" },
-                  { id: "gemini", name: "Gemini" }
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setImageProvider(item.id)}
-                    style={{
-                      background:
-                        imageProvider === item.id ? "#3d63dd" : "#18181b",
-                      border:
-                        imageProvider === item.id
-                          ? "1px solid #4e74f0"
-                          : "1px solid #2f2f35",
-                      color: "#fff",
-                      borderRadius: 999,
-                      padding: "10px 16px",
-                      cursor: "pointer",
-                      width: "auto"
-                    }}
-                  >
-                    {item.name}
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setImageProvider("huggingface");
+                    setImageError("");
+                  }}
+                  style={{
+                    background:
+                      imageProvider === "huggingface" ? "#3d63dd" : "#18181b",
+                    border:
+                      imageProvider === "huggingface"
+                        ? "1px solid #4e74f0"
+                        : "1px solid #2f2f35",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    width: "auto"
+                  }}
+                >
+                  Hugging Face Generate
+                </button>
+
+                <button
+                  onClick={() => {
+                    setImageProvider("auto");
+                    setImageError("");
+                  }}
+                  style={{
+                    background:
+                      imageProvider === "auto" ? "#3d63dd" : "#18181b",
+                    border:
+                      imageProvider === "auto"
+                        ? "1px solid #4e74f0"
+                        : "1px solid #2f2f35",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    width: "auto"
+                  }}
+                >
+                  Auto
+                </button>
+
+                <button
+                  onClick={() => {
+                    setImageProvider("gemini");
+                    setImageError("");
+                  }}
+                  style={{
+                    background:
+                      imageProvider === "gemini" ? "#3d63dd" : "#18181b",
+                    border:
+                      imageProvider === "gemini"
+                        ? "1px solid #4e74f0"
+                        : "1px solid #2f2f35",
+                    color: "#fff",
+                    borderRadius: 999,
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    width: "auto"
+                  }}
+                >
+                  Gemini
+                </button>
               </div>
 
               <small
                 style={{
-                  display: "block",
-                  marginTop: 10,
-                  color: "#a1a1aa"
+                  color: "#a1a1aa",
+                  lineHeight: 1.6
                 }}
               >
-                Mode aktif: {getProviderLabel(imageProvider)}
-              </small>
-
-              <small
-                style={{
-                  display: "block",
-                  marginTop: 6,
-                  color: "#71717a",
-                  lineHeight: 1.5
-                }}
-              >
-                Text-to-image paling aman pakai Hugging Face. Upload + edit
-                gambar sekarang bisa coba Auto, Gemini, atau Hugging Face.
+                Text-to-image memakai provider yang kamu pilih. Kalau kamu upload
+                gambar, tombol edit akan otomatis memakai Replicate Flux Kontext
+                Pro.
               </small>
             </div>
 
             <div
               style={{
+                background: "#101014",
+                border: "1px solid #27272a",
+                borderRadius: 22,
+                padding: 16,
                 display: "grid",
-                gap: 10
+                gap: 12
               }}
             >
-              <strong>Upload Gambar (opsional)</strong>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "center"
+                }}
+              >
+                <strong>Upload Gambar untuk Edit</strong>
+
+                {uploadedImagePreview && (
+                  <button
+                    onClick={clearUploadedImage}
+                    style={{
+                      width: "auto",
+                      background: "#18181b",
+                      border: "1px solid #2f2f35"
+                    }}
+                  >
+                    Hapus Upload
+                  </button>
+                )}
+              </div>
 
               <input
                 type="file"
@@ -820,155 +953,173 @@ export default function Home() {
                 }}
               />
 
-              {uploadedImagePreview && (
+              {uploadedImagePreview ? (
                 <div
                   style={{
-                    background: "#101014",
-                    border: "1px solid #27272a",
-                    borderRadius: 20,
-                    padding: 14
+                    display: "grid",
+                    gap: 10
                   }}
                 >
+                  <small style={{ color: "#a1a1aa" }}>
+                    Preview gambar asli:
+                  </small>
+
                   <img
                     src={uploadedImagePreview}
                     alt="Preview upload"
                     style={{
                       width: "100%",
+                      maxHeight: 520,
+                      objectFit: "contain",
                       display: "block",
-                      borderRadius: 14,
-                      marginBottom: 12
+                      borderRadius: 18,
+                      background: "#000",
+                      border: "1px solid #27272a"
                     }}
                   />
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      flexWrap: "wrap"
-                    }}
-                  >
-                    <button
-                      onClick={clearUploadedImage}
-                      style={{
-                        width: "auto"
-                      }}
-                    >
-                      Hapus Gambar
-                    </button>
-                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    border: "1px dashed #3f3f46",
+                    borderRadius: 18,
+                    padding: 18,
+                    color: "#a1a1aa",
+                    textAlign: "center",
+                    lineHeight: 1.6
+                  }}
+                >
+                  Belum ada gambar upload. Kalau kosong, AI akan membuat gambar
+                  baru dari teks.
                 </div>
               )}
             </div>
 
-            <textarea
-              value={imagePrompt}
-              onChange={(e) => setImagePrompt(e.target.value)}
-              placeholder={
-                uploadedImageFile
-                  ? 'Contoh: "Ubah background jadi cyberpunk malam, tetap pertahankan objek utama"'
-                  : 'Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
-              }
-              rows={5}
+            <div
               style={{
-                width: "100%",
-                borderRadius: 18,
-                border: "1px solid #2f2f35",
-                background: "#0f0f11",
-                color: "#fff",
+                background: "#101014",
+                border: "1px solid #27272a",
+                borderRadius: 22,
                 padding: 16,
-                fontSize: 15,
-                outline: "none",
-                resize: "vertical",
-                boxSizing: "border-box"
+                display: "grid",
+                gap: 12
               }}
-            />
+            >
+              <strong>
+                {isEditMode ? "Prompt Edit Gambar" : "Prompt Generate Gambar"}
+              </strong>
+
+              <textarea
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder={
+                  isEditMode
+                    ? 'Contoh: "Ganti background jadi laut, pertahankan objek utama"'
+                    : 'Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
+                }
+                rows={5}
+                style={{
+                  width: "100%",
+                  borderRadius: 18,
+                  border: "1px solid #2f2f35",
+                  background: "#0f0f11",
+                  color: "#fff",
+                  padding: 16,
+                  fontSize: 15,
+                  outline: "none",
+                  resize: "vertical",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap"
+                }}
+              >
+                {quickPrompts.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setImagePrompt(item.text);
+                      setImageError("");
+                    }}
+                    style={{
+                      background: "#18181b",
+                      border: "1px solid #2f2f35",
+                      color: "#fff",
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      cursor: "pointer",
+                      width: "auto"
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div
               style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap"
+                display: "grid",
+                gap: 10
               }}
             >
               <button onClick={generateImage} disabled={imageLoading}>
                 {imageLoading
-                  ? uploadedImageFile
-                    ? "Editing..."
-                    : "Generating..."
-                  : uploadedImageFile
-                  ? `Edit Image (${getProviderLabel(imageProvider)})`
+                  ? isEditMode
+                    ? "Editing Image..."
+                    : "Generating Image..."
+                  : isEditMode
+                  ? "Edit Image (Replicate)"
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
-              {generatedImage?.dataUrl && (
-                <button onClick={downloadGeneratedImage}>Download Image</button>
-              )}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap"
+                }}
+              >
+                {generatedImage?.dataUrl && (
+                  <button onClick={downloadGeneratedImage}>
+                    Download Image
+                  </button>
+                )}
+
+                <button
+                  onClick={resetImageTool}
+                  style={{
+                    background: "#18181b",
+                    border: "1px solid #2f2f35",
+                    width: "auto"
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap"
-              }}
-            >
-              <button
-                onClick={() =>
-                  useExamplePrompt(
-                    "Buat gambar mobil sport cyberpunk di jalan kota malam, neon lights, cinematic, ultra detail"
-                  )
-                }
+            {imageLoading && (
+              <div
                 style={{
-                  background: "#18181b",
-                  border: "1px solid #2f2f35",
-                  color: "#fff",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  width: "auto"
+                  background: "rgba(37, 99, 235, 0.15)",
+                  color: "#bfdbfe",
+                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  borderRadius: 14,
+                  padding: 14,
+                  lineHeight: 1.6
                 }}
               >
-                Cyberpunk Car
-              </button>
-
-              <button
-                onClick={() =>
-                  useExamplePrompt(
-                    "Buat ilustrasi logo maskot kucing lucu memakai hoodie biru, gaya modern flat vector, background putih"
-                  )
-                }
-                style={{
-                  background: "#18181b",
-                  border: "1px solid #2f2f35",
-                  color: "#fff",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  width: "auto"
-                }}
-              >
-                Mascot Logo
-              </button>
-
-              <button
-                onClick={() =>
-                  useExamplePrompt(
-                    "Buat poster anime fantasy seorang pendekar wanita memegang pedang bercahaya di hutan malam"
-                  )
-                }
-                style={{
-                  background: "#18181b",
-                  border: "1px solid #2f2f35",
-                  color: "#fff",
-                  borderRadius: 999,
-                  padding: "10px 14px",
-                  cursor: "pointer",
-                  width: "auto"
-                }}
-              >
-                Anime Poster
-              </button>
-            </div>
+                {isEditMode
+                  ? "AI sedang mengedit gambar. Untuk Replicate biasanya butuh beberapa detik sampai satu menit."
+                  : "AI sedang membuat gambar dari prompt kamu."}
+              </div>
+            )}
 
             {imageError && (
               <div
@@ -979,7 +1130,8 @@ export default function Home() {
                   borderRadius: 14,
                   padding: 14,
                   overflowWrap: "anywhere",
-                  wordBreak: "break-word"
+                  wordBreak: "break-word",
+                  lineHeight: 1.6
                 }}
               >
                 {imageError}
@@ -989,34 +1141,136 @@ export default function Home() {
             {generatedImage?.dataUrl && (
               <div
                 style={{
-                  marginTop: 10,
+                  marginTop: 4,
                   background: "#101014",
                   border: "1px solid #27272a",
                   borderRadius: 22,
-                  padding: 16
+                  padding: 16,
+                  display: "grid",
+                  gap: 14
                 }}
               >
-                <img
-                  src={generatedImage.dataUrl}
-                  alt={generatedImage.prompt}
+                <div
                   style={{
-                    width: "100%",
-                    borderRadius: 18,
-                    display: "block"
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    alignItems: "center",
+                    flexWrap: "wrap"
                   }}
-                />
+                >
+                  <div>
+                    <strong>Hasil AI</strong>
+
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        color: "#a1a1aa"
+                      }}
+                    >
+                      {generatedImage.edited
+                        ? "Before / after hasil edit gambar"
+                        : "Hasil generate gambar dari prompt"}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={downloadGeneratedImage}
+                    style={{
+                      width: "auto"
+                    }}
+                  >
+                    Download
+                  </button>
+                </div>
+
+                {isEditMode && uploadedImagePreview ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(220px, 1fr))",
+                      gap: 14
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8
+                      }}
+                    >
+                      <small style={{ color: "#a1a1aa" }}>Before</small>
+
+                      <img
+                        src={uploadedImagePreview}
+                        alt="Before edit"
+                        style={{
+                          width: "100%",
+                          maxHeight: 520,
+                          objectFit: "contain",
+                          borderRadius: 18,
+                          display: "block",
+                          background: "#000",
+                          border: "1px solid #27272a"
+                        }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8
+                      }}
+                    >
+                      <small style={{ color: "#a1a1aa" }}>After</small>
+
+                      <img
+                        src={generatedImage.dataUrl}
+                        alt={generatedImage.prompt}
+                        style={{
+                          width: "100%",
+                          maxHeight: 520,
+                          objectFit: "contain",
+                          borderRadius: 18,
+                          display: "block",
+                          background: "#000",
+                          border: "1px solid #27272a"
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={generatedImage.dataUrl}
+                    alt={generatedImage.prompt}
+                    style={{
+                      width: "100%",
+                      maxHeight: 720,
+                      objectFit: "contain",
+                      borderRadius: 18,
+                      display: "block",
+                      background: "#000",
+                      border: "1px solid #27272a"
+                    }}
+                  />
+                )}
 
                 <div
                   style={{
-                    marginTop: 14,
                     display: "grid",
-                    gap: 8
+                    gap: 10,
+                    background: "#0f0f11",
+                    border: "1px solid #27272a",
+                    borderRadius: 18,
+                    padding: 14
                   }}
                 >
                   <div>
                     <strong>Provider:</strong>
                     <p style={{ marginTop: 6 }}>
-                      {getProviderLabel(generatedImage.provider)}
+                      {generatedImage.edited
+                        ? "Replicate / Flux Kontext Pro"
+                        : getProviderLabel(generatedImage.provider)}
                     </p>
                   </div>
 
