@@ -648,6 +648,24 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
+    setTimeout(() => {
+      const panel = document.querySelector(".main-area > .placeholder-panel");
+      const chatBox = document.querySelector(".chat-box");
+
+      if (activeTool === "image" && panel) {
+        panel.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+      }
+
+      if (activeTool === "chat" && chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }, 80);
+  }, [activeTool]);
+
+  useEffect(() => {
     return () => {
       if (uploadedImagePreview) {
         URL.revokeObjectURL(uploadedImagePreview);
@@ -1332,19 +1350,9 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   function useHistoryImage(item) {
-    setGeneratedImage({
-      prompt: item.prompt || "",
-      text: "Diambil dari history.",
-      mimeType: item.mime_type || "image/png",
-      base64: "",
-      dataUrl: item.image_url,
-      provider: item.provider || "history",
-      edited: item.image_type === "edit"
-    });
+    if (!item?.image_url) return;
 
-    setImagePrompt(item.prompt || "");
-    setActiveTool("image");
-    setToolMenuOpen(false);
+    setPreviewImageUrl(item.image_url);
   }
 
   function getProviderLabel(provider) {
@@ -1625,7 +1633,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 </button>
               </div>
 
-              <small style={{ color: "#a1a1aa", lineHeight: 1.6 }}>
+              <small
+                style={{
+                  color: "#a1a1aa",
+                  lineHeight: 1.6
+                }}
+              >
                 Text-to-image memakai provider yang kamu pilih. Kalau kamu upload
                 gambar, tombol edit akan otomatis memakai Replicate Flux Kontext
                 Pro.
@@ -1718,7 +1731,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               />
 
               {uploadedImagePreview ? (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10
+                  }}
+                >
                   <small style={{ color: "#a1a1aa" }}>
                     Preview gambar asli:
                   </small>
@@ -1791,7 +1809,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 }}
               />
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap"
+                }}
+              >
                 {quickPrompts.map((item) => (
                   <button
                     key={item.label}
@@ -1815,7 +1839,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 10 }}>
+            <div
+              style={{
+                display: "grid",
+                gap: 10
+              }}
+            >
               <button onClick={generateImage} disabled={imageLoading}>
                 {imageLoading
                   ? isEditMode
@@ -1826,7 +1855,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap"
+                }}
+              >
                 {generatedImage?.dataUrl && (
                   <button onClick={downloadGeneratedImage}>
                     Download Image
@@ -1837,7 +1872,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   <button
                     onClick={saveGeneratedImage}
                     disabled={imageSaving}
-                    style={{ width: "auto", background: "#16a34a" }}
+                    style={{
+                      width: "auto",
+                      background: "#16a34a"
+                    }}
                   >
                     {imageSaving ? "Saving..." : "Save to History"}
                   </button>
@@ -1899,17 +1937,30 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   <div>
                     <strong>Hasil AI</strong>
 
-                    <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        color: "#a1a1aa"
+                      }}
+                    >
                       {generatedImage.edited
                         ? "Before / after hasil edit gambar"
                         : "Hasil generate variasi gambar dari prompt"}
                     </p>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap"
+                    }}
+                  >
                     <button
                       onClick={downloadGeneratedImage}
-                      style={{ width: "auto" }}
+                      style={{
+                        width: "auto"
+                      }}
                     >
                       Download
                     </button>
@@ -1918,7 +1969,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       <button
                         onClick={saveGeneratedImage}
                         disabled={imageSaving}
-                        style={{ width: "auto", background: "#16a34a" }}
+                        style={{
+                          width: "auto",
+                          background: "#16a34a"
+                        }}
                       >
                         {imageSaving ? "Saving..." : "Save"}
                       </button>
@@ -1935,7 +1989,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       gap: 14
                     }}
                   >
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8
+                      }}
+                    >
                       <small style={{ color: "#a1a1aa" }}>Before</small>
 
                       <img
@@ -1953,7 +2012,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       />
                     </div>
 
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8
+                      }}
+                    >
                       <small style={{ color: "#a1a1aa" }}>After</small>
 
                       <img
@@ -2052,7 +2116,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 <div>
                   <strong>History AI Image</strong>
 
-                  <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: "#a1a1aa"
+                    }}
+                  >
                     Gambar yang kamu simpan akan muncul di sini.
                   </p>
                 </div>
@@ -2114,7 +2183,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                           aspectRatio: "1 / 1",
                           objectFit: "cover",
                           borderRadius: 14,
-                          cursor: "pointer",
+                          cursor: "zoom-in",
                           background: "#000"
                         }}
                       />
@@ -2137,7 +2206,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                         {item.provider || "-"}
                       </small>
 
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8
+                        }}
+                      >
                         <button
                           onClick={() => useHistoryImage(item)}
                           style={{
@@ -2146,7 +2220,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                             padding: "8px 10px"
                           }}
                         >
-                          Open
+                          Preview
                         </button>
 
                         <button
