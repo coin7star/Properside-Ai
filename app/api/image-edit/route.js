@@ -23,6 +23,33 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+function cleanGeminiEditError(message = "") {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("not found") || lower.includes("not supported")) {
+    return "Model Gemini Image tidak ditemukan. Cek GEMINI_IMAGE_MODEL, pakai gemini-2.5-flash-image.";
+  }
+
+  if (
+    lower.includes("quota") ||
+    lower.includes("exceeded") ||
+    lower.includes("limit")
+  ) {
+    return "Quota Gemini Image kamu habis atau belum aktif untuk model image.";
+  }
+
+  if (
+    lower.includes("api key") ||
+    lower.includes("permission") ||
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden")
+  ) {
+    return "GEMINI_API_KEY salah, belum aktif, atau tidak punya izin untuk Gemini Image.";
+  }
+
+  return message || "Gagal edit gambar dengan Gemini.";
+}
+
 function extractGeminiResult(result) {
   const candidates = result?.candidates || [];
   let image = "";
@@ -41,6 +68,11 @@ function extractGeminiResult(result) {
         image = part.inlineData.data;
         mimeType = part.inlineData.mimeType || "image/png";
       }
+
+      if (part?.inline_data?.data) {
+        image = part.inline_data.data;
+        mimeType = part.inline_data.mime_type || "image/png";
+      }
     }
   }
 
@@ -53,13 +85,12 @@ function extractGeminiResult(result) {
 
 async function editWithGemini({ prompt, imageBase64, mimeType }) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model =
-    process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image-preview";
+  const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 
   if (!apiKey) {
     return {
       ok: false,
-      error: "GEMINI_API_KEY belum diatur."
+      error: "GEMINI_API_KEY belum diatur di Cloudflare."
     };
   }
 
@@ -71,7 +102,7 @@ async function editWithGemini({ prompt, imageBase64, mimeType }) {
         role: "user",
         parts: [
           {
-            text: `Edit gambar yang diberikan sesuai instruksi user. Pertahankan elemen penting dari gambar asli jika masih relevan. Instruksi user: ${prompt}`
+            text: `Edit gambar ini sesuai instruksi user. Pertahankan objek utama dari gambar asli jika masih relevan. Instruksi user: ${prompt}`
           },
           {
             inlineData: {
@@ -95,14 +126,25 @@ async function editWithGemini({ prompt, imageBase64, mimeType }) {
     body: JSON.stringify(body)
   });
 
-  const result = await response.json();
+  const rawText = await response.text();
+  let result = null;
+
+  try {
+    result = JSON.parse(rawText);
+  } catch {
+    result = null;
+  }
 
   if (!response.ok) {
+    const rawMessage =
+      result?.error?.message ||
+      rawText ||
+      "Gagal edit gambar dengan Gemini.";
+
     return {
       ok: false,
-      error:
-        result?.error?.message ||
-        "Gagal edit gambar dengan Gemini."
+      error: cleanGeminiEditError(rawMessage),
+      rawError: rawMessage
     };
   }
 
@@ -111,7 +153,9 @@ async function editWithGemini({ prompt, imageBase64, mimeType }) {
   if (!extracted.image) {
     return {
       ok: false,
-      error: "Gemini tidak mengembalikan hasil gambar."
+      error:
+        "Gemini tidak mengembalikan hasil gambar. Coba prompt lain atau cek quota Gemini Image.",
+      rawError: result
     };
   }
 
@@ -166,8 +210,7 @@ export async function POST(req) {
       return jsonResponse(
         {
           success: false,
-          error:
-            "Fitur edit gambar saat ini hanya support Gemini atau Auto."
+          error: "Fitur edit gambar saat ini hanya support Gemini atau Auto."
         },
         400
       );
@@ -187,7 +230,8 @@ export async function POST(req) {
       return jsonResponse(
         {
           success: false,
-          error: result.error
+          error: result.error,
+          rawError: result.rawError || ""
         },
         400
       );
