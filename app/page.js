@@ -257,6 +257,16 @@ export default function Home() {
     };
   }, [uploadedImagePreview]);
 
+  function makeVariationPrompt(prompt) {
+    return `${prompt.trim()}
+
+Unique variation seed: ${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}
+
+Create a fresh variation. Keep the result close to the user's prompt, but do not repeat the exact same composition, pose, lighting, background, color placement, subject angle, or camera angle as previous outputs.`;
+  }
+
   async function loadSessions(email) {
     try {
       const res = await fetch(
@@ -613,7 +623,7 @@ export default function Home() {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            prompt: imagePrompt.trim(),
+            prompt: makeVariationPrompt(imagePrompt),
             provider: imageProvider
           })
         });
@@ -767,13 +777,6 @@ export default function Home() {
 
     setImagePrompt(item.prompt || "");
     setActiveTool("image");
-    setToolMenuOpen(false);
-  }
-
-  function useExamplePrompt(text) {
-    setImagePrompt(text);
-    setActiveTool("image");
-    setImageProvider("huggingface");
     setToolMenuOpen(false);
   }
 
@@ -1082,6 +1085,24 @@ export default function Home() {
                 jatah Replicate sedang habis. Generate gambar biasa tetap bisa
                 pakai Hugging Face.
               </small>
+
+              {!isEditMode && (
+                <small
+                  style={{
+                    color: "#93c5fd",
+                    lineHeight: 1.6,
+                    background: "rgba(37, 99, 235, 0.12)",
+                    border: "1px solid rgba(59, 130, 246, 0.25)",
+                    borderRadius: 12,
+                    padding: 10,
+                    display: "block"
+                  }}
+                >
+                  Mode generate sudah diberi variasi otomatis. Jadi walaupun
+                  prompt sama, hasil gambar berikutnya akan dibuat berbeda tapi
+                  tetap mengikuti prompt utama.
+                </small>
+              )}
             </div>
 
             <div
@@ -1253,7 +1274,7 @@ export default function Home() {
                 {imageLoading
                   ? isEditMode
                     ? "Editing Image..."
-                    : "Generating Image..."
+                    : "Generating New Variation..."
                   : isEditMode
                   ? "Edit Image (Replicate)"
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
@@ -1311,7 +1332,7 @@ export default function Home() {
               >
                 {isEditMode
                   ? "AI sedang mengedit gambar. Untuk Replicate biasanya butuh beberapa detik sampai satu menit."
-                  : "AI sedang membuat gambar dari prompt kamu."}
+                  : "AI sedang membuat variasi gambar baru dari prompt kamu."}
               </div>
             )}
 
@@ -1349,7 +1370,7 @@ export default function Home() {
                     >
                       {generatedImage.edited
                         ? "Before / after hasil edit gambar"
-                        : "Hasil generate gambar dari prompt"}
+                        : "Hasil generate variasi gambar dari prompt"}
                     </p>
                   </div>
 
@@ -1479,7 +1500,7 @@ export default function Home() {
                     <p style={{ marginTop: 6 }}>
                       {generatedImage.edited
                         ? "Hasil edit gambar"
-                        : "Hasil generate gambar"}
+                        : "Hasil generate variasi gambar"}
                     </p>
                   </div>
 
