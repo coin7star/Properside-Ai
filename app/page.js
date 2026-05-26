@@ -183,6 +183,10 @@ export default function Home() {
   const [uploadedImageFile, setUploadedImageFile] = useState(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState("");
 
+  const [imageHistory, setImageHistory] = useState([]);
+  const [imageHistoryLoading, setImageHistoryLoading] = useState(false);
+  const [imageSaving, setImageSaving] = useState(false);
+
   useEffect(() => {
     async function initAuth() {
       try {
@@ -241,6 +245,7 @@ export default function Home() {
     if (user?.email) {
       loadSessions(user.email);
       loadTempMails(user.email);
+      loadImageHistory(user.email);
     }
   }, [user]);
 
@@ -474,6 +479,7 @@ export default function Home() {
     setTempMessages([]);
     setGeneratedImage(null);
     setImageError("");
+    setImageHistory([]);
     clearUploadedImage();
   }
 
@@ -657,6 +663,111 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  async function loadImageHistory(email = user?.email) {
+    if (!email) return;
+
+    try {
+      setImageHistoryLoading(true);
+
+      const res = await fetch(
+        `/api/image-history?user_email=${encodeURIComponent(email)}`
+      );
+
+      const data = await res.json();
+
+      if (data?.success) {
+        setImageHistory(data?.data || []);
+      }
+    } catch {
+      console.log("Gagal load image history.");
+    } finally {
+      setImageHistoryLoading(false);
+    }
+  }
+
+  async function saveGeneratedImage() {
+    if (!generatedImage?.base64 || !user?.email || imageSaving) return;
+
+    try {
+      setImageSaving(true);
+      setImageError("");
+
+      const res = await fetch("/api/image-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_email: user.email,
+          prompt: generatedImage.prompt || imagePrompt,
+          provider: generatedImage.provider || imageProvider,
+          image_type: generatedImage.edited ? "edit" : "generate",
+          image: generatedImage.base64,
+          mimeType: generatedImage.mimeType || "image/png"
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        setImageError(data?.error || "Gagal menyimpan gambar ke history.");
+        return;
+      }
+
+      await loadImageHistory(user.email);
+    } catch (error) {
+      setImageError(error?.message || "Gagal menyimpan gambar.");
+    } finally {
+      setImageSaving(false);
+    }
+  }
+
+  async function deleteImageHistoryItem(item) {
+    if (!item?.id || !user?.email) return;
+
+    const ok = confirm("Hapus gambar ini dari history?");
+
+    if (!ok) return;
+
+    try {
+      const res = await fetch(
+        `/api/image-history?id=${encodeURIComponent(
+          item.id
+        )}&user_email=${encodeURIComponent(user.email)}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        alert(data?.error || "Gagal hapus image history.");
+        return;
+      }
+
+      await loadImageHistory(user.email);
+    } catch {
+      alert("Gagal hapus image history.");
+    }
+  }
+
+  function useHistoryImage(item) {
+    setGeneratedImage({
+      prompt: item.prompt || "",
+      text: "Diambil dari history.",
+      mimeType: item.mime_type || "image/png",
+      base64: "",
+      dataUrl: item.image_url,
+      provider: item.provider || "history",
+      edited: item.image_type === "edit"
+    });
+
+    setImagePrompt(item.prompt || "");
+    setActiveTool("image");
+    setToolMenuOpen(false);
   }
 
   function useExamplePrompt(text) {
@@ -1091,6 +1202,19 @@ export default function Home() {
                   </button>
                 )}
 
+                {generatedImage?.base64 && (
+                  <button
+                    onClick={saveGeneratedImage}
+                    disabled={imageSaving}
+                    style={{
+                      width: "auto",
+                      background: "#16a34a"
+                    }}
+                  >
+                    {imageSaving ? "Saving..." : "Save to History"}
+                  </button>
+                )}
+
                 <button
                   onClick={resetImageTool}
                   style={{
@@ -1174,14 +1298,35 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <button
-                    onClick={downloadGeneratedImage}
+                  <div
                     style={{
-                      width: "auto"
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap"
                     }}
                   >
-                    Download
-                  </button>
+                    <button
+                      onClick={downloadGeneratedImage}
+                      style={{
+                        width: "auto"
+                      }}
+                    >
+                      Download
+                    </button>
+
+                    {generatedImage?.base64 && (
+                      <button
+                        onClick={saveGeneratedImage}
+                        disabled={imageSaving}
+                        style={{
+                          width: "auto",
+                          background: "#16a34a"
+                        }}
+                      >
+                        {imageSaving ? "Saving..." : "Save"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {isEditMode && uploadedImagePreview ? (
@@ -1297,6 +1442,153 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            <div
+              style={{
+                background: "#101014",
+                border: "1px solid #27272a",
+                borderRadius: 22,
+                padding: 16,
+                display: "grid",
+                gap: 14
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap"
+                }}
+              >
+                <div>
+                  <strong>History AI Image</strong>
+
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: "#a1a1aa"
+                    }}
+                  >
+                    Gambar yang kamu simpan akan muncul di sini.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => loadImageHistory(user.email)}
+                  disabled={imageHistoryLoading}
+                  style={{
+                    width: "auto",
+                    background: "#18181b",
+                    border: "1px solid #2f2f35"
+                  }}
+                >
+                  {imageHistoryLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              {imageHistory.length === 0 ? (
+                <div
+                  style={{
+                    border: "1px dashed #3f3f46",
+                    borderRadius: 18,
+                    padding: 18,
+                    color: "#a1a1aa",
+                    textAlign: "center",
+                    lineHeight: 1.6
+                  }}
+                >
+                  Belum ada history gambar. Generate/edit gambar lalu klik Save
+                  to History.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 12
+                  }}
+                >
+                  {imageHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        background: "#0f0f11",
+                        border: "1px solid #27272a",
+                        borderRadius: 18,
+                        padding: 10,
+                        display: "grid",
+                        gap: 8
+                      }}
+                    >
+                      <img
+                        src={item.image_url}
+                        alt={item.prompt || "AI image history"}
+                        onClick={() => useHistoryImage(item)}
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1 / 1",
+                          objectFit: "cover",
+                          borderRadius: 14,
+                          cursor: "pointer",
+                          background: "#000"
+                        }}
+                      />
+
+                      <small
+                        style={{
+                          color: "#a1a1aa",
+                          lineHeight: 1.4,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden"
+                        }}
+                      >
+                        {item.prompt || "Tanpa prompt"}
+                      </small>
+
+                      <small style={{ color: "#71717a" }}>
+                        {item.image_type === "edit" ? "Edit" : "Generate"} ·{" "}
+                        {item.provider || "-"}
+                      </small>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8
+                        }}
+                      >
+                        <button
+                          onClick={() => useHistoryImage(item)}
+                          style={{
+                            flex: 1,
+                            fontSize: 13,
+                            padding: "8px 10px"
+                          }}
+                        >
+                          Open
+                        </button>
+
+                        <button
+                          onClick={() => deleteImageHistoryItem(item)}
+                          style={{
+                            width: "auto",
+                            fontSize: 13,
+                            padding: "8px 10px",
+                            background: "#7f1d1d"
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
