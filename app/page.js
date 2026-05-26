@@ -50,7 +50,6 @@ function MessageContent({ text }) {
             <div className="code-block" key={index}>
               <div className="code-header">
                 <span>{language}</span>
-
                 <button
                   className="copy-btn"
                   onClick={() => navigator.clipboard.writeText(code)}
@@ -158,8 +157,6 @@ function MessageContent({ text }) {
 export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authError, setAuthError] = useState("");
   const [activeTool, setActiveTool] = useState("home");
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
 
@@ -178,59 +175,24 @@ export default function Home() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
   const [generatedImage, setGeneratedImage] = useState(null);
-  const [imageProvider, setImageProvider] = useState("huggingface");
+  const [imageProvider, setImageProvider] = useState("auto");
+  const [uploadedImageFile, setUploadedImageFile] = useState(null);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState("");
 
   useEffect(() => {
-    async function initAuth() {
-      try {
-        const client = getSupabase();
+    const client = getSupabase();
+    setSupabase(client);
 
-        if (!client) {
-          setAuthError(
-            "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
-          );
-          setAuthReady(true);
-          return;
-        }
+    client.auth.getUser().then(({ data }) => {
+      setUser(data?.user || null);
+    });
 
-        setSupabase(client);
-
-        const { data, error } = await client.auth.getUser();
-
-        if (error) {
-          console.log("Gagal membaca user:", error.message);
-        }
-
-        setUser(data?.user || null);
-
-        const { data: listener } = client.auth.onAuthStateChange(
-          (_event, session) => {
-            setUser(session?.user || null);
-          }
-        );
-
-        setAuthReady(true);
-
-        return () => {
-          listener?.subscription?.unsubscribe();
-        };
-      } catch (error) {
-        console.error("Auth init error:", error);
-        setAuthError("Terjadi error saat menyiapkan login Supabase.");
-        setAuthReady(true);
-      }
-    }
-
-    let unsubscribe;
-
-    initAuth().then((cleanup) => {
-      unsubscribe = cleanup;
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
     });
 
     return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
+      data?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -240,6 +202,14 @@ export default function Home() {
       loadTempMails(user.email);
     }
   }, [user]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadedImagePreview) {
+        URL.revokeObjectURL(uploadedImagePreview);
+      }
+    };
+  }, [uploadedImagePreview]);
 
   async function loadSessions(email) {
     try {
@@ -430,21 +400,12 @@ export default function Home() {
   }
 
   async function loginGoogle() {
-    if (!supabase) {
-      alert(
-        "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
-      );
-      return;
-    }
+    if (!supabase) return;
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account"
-        }
+        redirectTo: window.location.origin
       }
     });
   }
@@ -463,6 +424,7 @@ export default function Home() {
     setTempMessages([]);
     setGeneratedImage(null);
     setImageError("");
+    clearUploadedImage();
   }
 
   async function sendMessage() {
@@ -522,6 +484,41 @@ export default function Home() {
     }
   }
 
+  function handleImageUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type?.startsWith("image/")) {
+      setImageError("File harus berupa gambar.");
+      return;
+    }
+
+    if (uploadedImagePreview) {
+      URL.revokeObjectURL(uploadedImagePreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setUploadedImageFile(file);
+    setUploadedImagePreview(previewUrl);
+    setGeneratedImage(null);
+    setImageError("");
+
+    if (!["auto", "gemini"].includes(imageProvider)) {
+      setImageProvider("gemini");
+    }
+  }
+
+  function clearUploadedImage() {
+    if (uploadedImagePreview) {
+      URL.revokeObjectURL(uploadedImagePreview);
+    }
+
+    setUploadedImageFile(null);
+    setUploadedImagePreview("");
+  }
+
   async function generateImage() {
     if (!imagePrompt.trim() || imageLoading) return;
 
@@ -530,18 +527,42 @@ export default function Home() {
       setImageError("");
       setGeneratedImage(null);
 
-      const res = await fetch("/api/image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          prompt: imagePrompt.trim(),
-          provider: imageProvider
-        })
-      });
+      let res;
+      let data;
 
-      const data = await res.json();
+      if (uploadedImageFile) {
+        if (!["auto", "gemini"].includes(imageProvider)) {
+          setImageError(
+            "Fitur edit gambar saat ini hanya support Gemini atau Auto."
+          );
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("prompt", imagePrompt.trim());
+        formData.append("provider", imageProvider);
+        formData.append("image", uploadedImageFile);
+
+        res = await fetch("/api/image-edit", {
+          method: "POST",
+          body: formData
+        });
+
+        data = await res.json();
+      } else {
+        res = await fetch("/api/image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            prompt: imagePrompt.trim(),
+            provider: imageProvider
+          })
+        });
+
+        data = await res.json();
+      }
 
       if (!res.ok || !data?.success) {
         setImageError(data?.error || "Gagal generate gambar.");
@@ -556,10 +577,13 @@ export default function Home() {
         dataUrl: `data:${data?.mimeType || "image/png"};base64,${
           data?.image || ""
         }`,
-        provider: data?.provider || imageProvider
+        provider: data?.provider || imageProvider,
+        edited: !!data?.edited
       });
-    } catch {
-      setImageError("Terjadi error saat generate gambar.");
+    } catch (error) {
+      setImageError(
+        error?.message || "Terjadi error saat generate / edit gambar."
+      );
     } finally {
       setImageLoading(false);
     }
@@ -585,11 +609,12 @@ export default function Home() {
   function useExamplePrompt(text) {
     setImagePrompt(text);
     setActiveTool("image");
-    setImageProvider("huggingface");
     setToolMenuOpen(false);
   }
 
   function getProviderLabel(provider) {
+    if (provider === "gemini") return "Gemini";
+    if (provider === "fal") return "fal.ai";
     if (provider === "huggingface") return "Hugging Face";
     return "Auto";
   }
@@ -648,7 +673,8 @@ export default function Home() {
           <h2 style={{ textAlign: "center" }}>AI Image Generator</h2>
 
           <p style={{ textAlign: "center" }}>
-            Buat gambar dari teks memakai Hugging Face AI Image.
+            Buat gambar dari teks atau upload gambar lalu minta AI mengubahnya
+            sesuai prompt.
           </p>
 
           <div
@@ -671,8 +697,10 @@ export default function Home() {
                 }}
               >
                 {[
-                  { id: "huggingface", name: "Hugging Face" },
-                  { id: "auto", name: "Auto" }
+                  { id: "auto", name: "Auto" },
+                  { id: "gemini", name: "Gemini" },
+                  { id: "fal", name: "fal.ai" },
+                  { id: "huggingface", name: "Hugging Face" }
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -710,19 +738,84 @@ export default function Home() {
                 style={{
                   display: "block",
                   marginTop: 6,
-                  color: "#71717a",
-                  lineHeight: 1.5
+                  color: "#a1a1aa"
                 }}
               >
-                Gemini dan fal.ai disembunyikan dulu karena quota/saldo belum
-                aktif. Provider utama sekarang memakai Hugging Face.
+                Catatan: upload + edit gambar saat ini support Gemini / Auto.
               </small>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 10
+              }}
+            >
+              <strong>Upload Gambar (opsional)</strong>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{
+                  width: "100%",
+                  borderRadius: 14,
+                  border: "1px solid #2f2f35",
+                  background: "#0f0f11",
+                  color: "#fff",
+                  padding: 12,
+                  boxSizing: "border-box"
+                }}
+              />
+
+              {uploadedImagePreview && (
+                <div
+                  style={{
+                    background: "#101014",
+                    border: "1px solid #27272a",
+                    borderRadius: 20,
+                    padding: 14
+                  }}
+                >
+                  <img
+                    src={uploadedImagePreview}
+                    alt="Preview upload"
+                    style={{
+                      width: "100%",
+                      display: "block",
+                      borderRadius: 14,
+                      marginBottom: 12
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap"
+                    }}
+                  >
+                    <button
+                      onClick={clearUploadedImage}
+                      style={{
+                        width: "auto"
+                      }}
+                    >
+                      Hapus Gambar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <textarea
               value={imagePrompt}
               onChange={(e) => setImagePrompt(e.target.value)}
-              placeholder='Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
+              placeholder={
+                uploadedImageFile
+                  ? 'Contoh: "Ubah background jadi cyberpunk malam, tetap pertahankan wajah orangnya"'
+                  : 'Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
+              }
               rows={5}
               style={{
                 width: "100%",
@@ -747,7 +840,11 @@ export default function Home() {
             >
               <button onClick={generateImage} disabled={imageLoading}>
                 {imageLoading
-                  ? "Generating..."
+                  ? uploadedImageFile
+                    ? "Editing..."
+                    : "Generating..."
+                  : uploadedImageFile
+                  ? `Edit Image (${getProviderLabel(imageProvider)})`
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
@@ -872,6 +969,15 @@ export default function Home() {
                   </div>
 
                   <div>
+                    <strong>Tipe:</strong>
+                    <p style={{ marginTop: 6 }}>
+                      {generatedImage.edited
+                        ? "Hasil edit gambar"
+                        : "Hasil generate gambar"}
+                    </p>
+                  </div>
+
+                  <div>
                     <strong>Prompt:</strong>
                     <p style={{ marginTop: 6 }}>{generatedImage.prompt}</p>
                   </div>
@@ -913,13 +1019,8 @@ export default function Home() {
                 flexWrap: "wrap"
               }}
             >
-              <button onClick={() => setActiveTool("chat")}>
-                Mulai Chat AI
-              </button>
-
-              <button onClick={() => setActiveTool("image")}>
-                Buka AI Image
-              </button>
+              <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
+              <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
             </div>
           </div>
         </section>
@@ -1108,20 +1209,6 @@ export default function Home() {
     );
   }
 
-  if (!authReady) {
-    return (
-      <main className="login-page">
-        <div className="login-card">
-          <div className="brand-logo">P</div>
-
-          <h1>Properside AI</h1>
-
-          <p>Sedang menyiapkan login...</p>
-        </div>
-      </main>
-    );
-  }
-
   if (!user) {
     return (
       <main className="login-page">
@@ -1134,21 +1221,6 @@ export default function Home() {
             Login dengan Google untuk menyimpan history chat dan menggunakan
             workspace AI.
           </p>
-
-          {authError && (
-            <p
-              style={{
-                color: "#fca5a5",
-                background: "rgba(220, 38, 38, 0.15)",
-                border: "1px solid rgba(239, 68, 68, 0.3)",
-                borderRadius: 14,
-                padding: 12,
-                marginTop: 12
-              }}
-            >
-              {authError}
-            </p>
-          )}
 
           <button onClick={loginGoogle}>Login dengan Google</button>
         </div>
