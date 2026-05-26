@@ -3759,3 +3759,109 @@ body {
     object-fit: contain !important;
   }
 }
+
+/* =====================================================
+   FINAL AI IMAGE PC NORMAL SIZE FIX
+   Tempel paling bawah app/globals.css
+   HP tetap aman, ini hanya untuk PC/laptop
+===================================================== */
+
+@media (min-width: 900px) {
+  /* Area kanan workspace jangan center vertikal untuk tool AI Image */
+  .main-area {
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  /* Semua tool non-chat, termasuk AI Image, scroll normal dari atas */
+  .main-area > .placeholder-panel {
+    height: calc(100vh - 102px) !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    display: block !important;
+    place-items: unset !important;
+    align-items: unset !important;
+    justify-content: unset !important;
+
+    padding: 24px 32px 90px !important;
+    scroll-padding-top: 24px !important;
+  }
+
+  /* Card AI Image jangan kecil di tengah layar */
+  .main-area > .placeholder-panel > .placeholder-card {
+    width: 100% !important;
+    max-width: 1180px !important;
+    margin: 0 auto !important;
+
+    display: block !important;
+    transform: none !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Bagian judul AI Image harus selalu kelihatan */
+  .main-area > .placeholder-panel .placeholder-icon {
+    margin-top: 0 !important;
+  }
+
+  .main-area > .placeholder-panel h2 {
+    margin-top: 0 !important;
+  }
+
+  /* Form AI Image jangan terlalu tinggi di PC */
+  .main-area > .placeholder-panel textarea {
+    min-height: 120px !important;
+    max-height: 190px !important;
+    resize: vertical !important;
+  }
+
+  /* Card-card dalam AI Image jangan terlalu makan tinggi */
+  .main-area > .placeholder-panel .placeholder-card > div {
+    gap: 14px !important;
+  }
+
+  /* Tombol generate jangan terlalu tinggi/lebar aneh */
+  .main-area > .placeholder-panel button {
+    min-height: auto !important;
+  }
+
+  /* History AI Image tetap kecil */
+  .main-area > .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 190px)) !important;
+    justify-content: start !important;
+    align-items: start !important;
+  }
+
+  .main-area > .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] > div {
+    max-width: 190px !important;
+  }
+
+  .main-area > .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] img {
+    width: 100% !important;
+    height: 150px !important;
+    aspect-ratio: auto !important;
+    object-fit: cover !important;
+  }
+
+  /* Preview hasil generate utama jangan kebesaran */
+  .main-area > .placeholder-panel img {
+    max-width: 100% !important;
+  }
+
+  .main-area > .placeholder-panel img[alt="Preview upload"],
+  .main-area > .placeholder-panel img[alt="Before edit"] {
+    max-height: 420px !important;
+    object-fit: contain !important;
+  }
+
+  /* Biar scrollbar cuma muncul di area kanan, bukan bikin halaman kacau */
+  body {
+    overflow: hidden !important;
+  }
+}
