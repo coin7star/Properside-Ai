@@ -57,6 +57,336 @@ function renderInlineFormat(text, keyPrefix = "inline") {
   });
 }
 
+function normalizeCodeLanguage(language = "") {
+  return String(language || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^language-/, "");
+}
+
+function looksLikeHtml(code = "") {
+  const text = String(code || "").trim().toLowerCase();
+
+  return (
+    text.includes("<!doctype") ||
+    text.includes("<html") ||
+    text.includes("<body") ||
+    text.includes("<div") ||
+    text.includes("<section") ||
+    text.includes("<button") ||
+    text.includes("<main") ||
+    text.includes("<header") ||
+    text.includes("<form") ||
+    text.includes("<style") ||
+    text.includes("<script") ||
+    text.includes("<canvas") ||
+    text.includes("<svg")
+  );
+}
+
+function buildPreviewHtml(language, code) {
+  const lang = normalizeCodeLanguage(language);
+  const rawCode = String(code || "").trim();
+
+  if (!rawCode) return "";
+
+  if (lang === "html" || lang === "xml" || looksLikeHtml(rawCode)) {
+    return rawCode.includes("<html")
+      ? rawCode
+      : `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 18px;
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      color: #111827;
+    }
+  </style>
+</head>
+<body>
+${rawCode}
+</body>
+</html>`;
+  }
+
+  if (lang === "css") {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+${rawCode}
+  </style>
+</head>
+<body>
+  <main class="preview-demo">
+    <h1>CSS Preview</h1>
+    <p>Ini contoh tampilan untuk melihat hasil CSS.</p>
+    <button>Contoh Button</button>
+    <div class="card">
+      <h2>Card Demo</h2>
+      <p>Kalau CSS kamu punya class khusus, tambahkan HTML di code block agar preview lebih akurat.</p>
+    </div>
+  </main>
+</body>
+</html>`;
+  }
+
+  if (lang === "javascript" || lang === "js") {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 18px;
+      font-family: Arial, sans-serif;
+      background: #ffffff;
+      color: #111827;
+    }
+    #app {
+      min-height: 140px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">JavaScript preview siap. Script akan berjalan di sandbox.</div>
+
+  <script>
+    try {
+${rawCode}
+    } catch (error) {
+      document.body.innerHTML += '<pre style="color:red;white-space:pre-wrap;">' + error.message + '</pre>';
+    }
+  </script>
+</body>
+</html>`;
+  }
+
+  if (lang === "svg") {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 18px;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      background: #ffffff;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+${rawCode}
+</body>
+</html>`;
+  }
+
+  return "";
+}
+
+function isPreviewableCode(language, code) {
+  const lang = normalizeCodeLanguage(language);
+
+  return (
+    lang === "html" ||
+    lang === "css" ||
+    lang === "javascript" ||
+    lang === "js" ||
+    lang === "svg" ||
+    looksLikeHtml(code)
+  );
+}
+
+function CodePreviewBlock({ language, code, blockId }) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [bigPreview, setBigPreview] = useState(false);
+
+  const previewable = isPreviewableCode(language, code);
+  const previewHtml = previewable ? buildPreviewHtml(language, code) : "";
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      alert("Gagal copy code.");
+    }
+  }
+
+  return (
+    <div className="code-block">
+      <div className="code-header">
+        <span>{language || "code"}</span>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap"
+          }}
+        >
+          {previewable && (
+            <button
+              className="copy-btn"
+              onClick={() => setShowPreview((prev) => !prev)}
+            >
+              {showPreview ? "Hide Preview" : "Preview"}
+            </button>
+          )}
+
+          <button className="copy-btn" onClick={copyCode}>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 12
+        }}
+      >
+        <pre>
+          <code>{code}</code>
+        </pre>
+
+        {showPreview && previewable && (
+          <div
+            style={{
+              background: "#0f0f11",
+              border: "1px solid #27272a",
+              borderRadius: 14,
+              overflow: "hidden"
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+                alignItems: "center",
+                padding: "10px 12px",
+                borderBottom: "1px solid #27272a",
+                background: "#18181b"
+              }}
+            >
+              <small style={{ color: "#a1a1aa" }}>Live Preview</small>
+
+              <button className="copy-btn" onClick={() => setBigPreview(true)}>
+                Buka Besar
+              </button>
+            </div>
+
+            <iframe
+              title={`Preview ${blockId}`}
+              sandbox="allow-scripts"
+              srcDoc={previewHtml}
+              style={{
+                width: "100%",
+                height: 320,
+                border: "none",
+                background: "#fff",
+                display: "block"
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {previewable && (
+        <small
+          style={{
+            display: "block",
+            color: "#a1a1aa",
+            marginTop: 8,
+            lineHeight: 1.5
+          }}
+        >
+          Preview mendukung HTML, CSS, JavaScript, dan SVG. React/Next.js belum
+          bisa dirender langsung tanpa compiler.
+        </small>
+      )}
+
+      {bigPreview && (
+        <div
+          onClick={() => setBigPreview(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background: "rgba(0, 0, 0, 0.9)",
+            padding: 16,
+            display: "grid",
+            gridTemplateRows: "auto 1fr",
+            gap: 12
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 10,
+              alignItems: "center",
+              background: "#18181b",
+              border: "1px solid #27272a",
+              borderRadius: 14,
+              padding: 10
+            }}
+          >
+            <strong style={{ color: "#fff" }}>Preview Besar</strong>
+
+            <button
+              onClick={() => setBigPreview(false)}
+              style={{
+                width: "auto",
+                background: "#27272a",
+                border: "1px solid #3f3f46"
+              }}
+            >
+              ✕ Tutup
+            </button>
+          </div>
+
+          <iframe
+            title={`Big Preview ${blockId}`}
+            sandbox="allow-scripts"
+            srcDoc={previewHtml}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              height: "100%",
+              border: "1px solid #27272a",
+              borderRadius: 16,
+              background: "#fff"
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageContent({ text }) {
   if (!text) return null;
 
@@ -69,26 +399,16 @@ function MessageContent({ text }) {
 
         if (isCode) {
           const lines = part.split("\n");
-          const language = lines[0]?.trim() || "code";
+          const language = normalizeCodeLanguage(lines[0]?.trim() || "code");
           const code = lines.slice(1).join("\n").trim();
 
           return (
-            <div className="code-block" key={index}>
-              <div className="code-header">
-                <span>{language}</span>
-
-                <button
-                  className="copy-btn"
-                  onClick={() => navigator.clipboard.writeText(code)}
-                >
-                  Copy
-                </button>
-              </div>
-
-              <pre>
-                <code>{code}</code>
-              </pre>
-            </div>
+            <CodePreviewBlock
+              key={`code-${index}`}
+              language={language}
+              code={code}
+              blockId={`code-${index}`}
+            />
           );
         }
 
@@ -172,7 +492,7 @@ function MessageContent({ text }) {
         flushList();
 
         return (
-          <div key={index} className="formatted-block">
+          <div key={`text-${index}`} className="formatted-block">
             {elements}
           </div>
         );
@@ -403,12 +723,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   async function deleteSession(sessionId) {
-    const ok = confirm("Hapus history chat ini?");
+    const ok = confirm("Hapus history chat ini? File gambar di Supabase Storage juga ikut dihapus.");
 
     if (!ok) return;
 
     try {
-      await fetch(
+      const res = await fetch(
         `/api/chat?session_id=${encodeURIComponent(
           sessionId
         )}&user_email=${encodeURIComponent(user.email)}`,
@@ -416,6 +736,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
           method: "DELETE"
         }
       );
+
+      const data = await res.json();
+
+      if (!res.ok || data?.success === false) {
+        alert(data?.error || "Gagal hapus chat.");
+        return;
+      }
 
       if (activeSessionId === sessionId) {
         newChat();
@@ -941,7 +1268,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   async function deleteImageHistoryItem(item) {
     if (!item?.id || !user?.email) return;
 
-    const ok = confirm("Hapus gambar ini dari history?");
+    const ok = confirm("Hapus gambar ini dari history? File di Supabase Storage juga ikut dihapus.");
 
     if (!ok) return;
 
