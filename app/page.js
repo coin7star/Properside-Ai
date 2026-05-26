@@ -320,11 +320,18 @@ function CodePreviewBlock({ language, code, blockId }) {
       {showPreview && previewable && (
         <div
           style={{
-            marginTop: 12,
-            background: "#0f0f11",
-            border: "1px solid #27272a",
-            borderRadius: 14,
-            overflow: "hidden"
+            marginTop: bigPreview ? 0 : 12,
+            position: bigPreview ? "fixed" : "relative",
+            inset: bigPreview ? 0 : "auto",
+            zIndex: bigPreview ? 10000 : "auto",
+            background: bigPreview ? "rgba(0,0,0,0.92)" : "#0f0f11",
+            border: bigPreview ? "none" : "1px solid #27272a",
+            borderRadius: bigPreview ? 0 : 14,
+            padding: bigPreview ? 16 : 0,
+            overflow: "hidden",
+            display: "grid",
+            gridTemplateRows: "auto 1fr",
+            gap: bigPreview ? 12 : 0
           }}
         >
           <div
@@ -334,12 +341,15 @@ function CodePreviewBlock({ language, code, blockId }) {
               gap: 8,
               alignItems: "center",
               padding: "10px 12px",
-              borderBottom: "1px solid #27272a",
+              border: "1px solid #27272a",
+              borderRadius: bigPreview ? 14 : 0,
               background: "#18181b",
               flexWrap: "wrap"
             }}
           >
-            <small style={{ color: "#a1a1aa" }}>Live HTML Preview</small>
+            <small style={{ color: "#a1a1aa" }}>
+              {bigPreview ? "Live Preview Besar" : "Live HTML Preview"}
+            </small>
 
             <div
               style={{
@@ -352,8 +362,11 @@ function CodePreviewBlock({ language, code, blockId }) {
                 Refresh
               </button>
 
-              <button className="copy-btn" onClick={() => setBigPreview(true)}>
-                Buka Besar
+              <button
+                className="copy-btn"
+                onClick={() => setBigPreview((prev) => !prev)}
+              >
+                {bigPreview ? "Kecilkan" : "Buka Besar"}
               </button>
             </div>
           </div>
@@ -366,8 +379,10 @@ function CodePreviewBlock({ language, code, blockId }) {
               src={previewUrl}
               style={{
                 width: "100%",
-                height: 420,
-                border: "none",
+                height: bigPreview ? "100%" : 420,
+                minHeight: bigPreview ? 0 : 420,
+                border: bigPreview ? "1px solid #27272a" : "none",
+                borderRadius: bigPreview ? 16 : 0,
                 background: "#fff",
                 display: "block",
                 pointerEvents: "auto",
@@ -396,108 +411,9 @@ function CodePreviewBlock({ language, code, blockId }) {
             lineHeight: 1.5
           }}
         >
-          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Untuk kalkulator,
-          minta AI buat “1 file HTML lengkap dengan CSS dan JavaScript internal”.
+          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Klik Buka Besar
+          tidak mereset preview. Yang reset hanya tombol Refresh.
         </small>
-      )}
-
-      {bigPreview && (
-        <div
-          onClick={() => setBigPreview(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            background: "rgba(0, 0, 0, 0.92)",
-            padding: 16,
-            display: "grid",
-            gridTemplateRows: "auto 1fr",
-            gap: 12
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 10,
-              alignItems: "center",
-              background: "#18181b",
-              border: "1px solid #27272a",
-              borderRadius: 14,
-              padding: 10,
-              flexWrap: "wrap"
-            }}
-          >
-            <strong style={{ color: "#fff" }}>Live Preview Besar</strong>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap"
-              }}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  refreshPreview();
-                }}
-                style={{
-                  width: "auto",
-                  background: "#27272a",
-                  border: "1px solid #3f3f46"
-                }}
-              >
-                Refresh
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBigPreview(false);
-                }}
-                style={{
-                  width: "auto",
-                  background: "#7f1d1d",
-                  border: "1px solid #991b1b"
-                }}
-              >
-                ✕ Tutup
-              </button>
-            </div>
-          </div>
-
-          {previewUrl ? (
-            <iframe
-              key={`big-preview-${blockId}-${refreshKey}`}
-              title={`Big Live Preview ${blockId}`}
-              sandbox="allow-scripts allow-forms allow-modals allow-same-origin"
-              src={previewUrl}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: "100%",
-                height: "100%",
-                border: "1px solid #27272a",
-                borderRadius: 16,
-                background: "#fff",
-                pointerEvents: "auto",
-                touchAction: "auto"
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                background: "#fff",
-                color: "#111",
-                padding: 20,
-                borderRadius: 16
-              }}
-            >
-              Menyiapkan live preview...
-            </div>
-          )}
-        </div>
       )}
     </div>
   );
@@ -1709,12 +1625,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 </button>
               </div>
 
-              <small
-                style={{
-                  color: "#a1a1aa",
-                  lineHeight: 1.6
-                }}
-              >
+              <small style={{ color: "#a1a1aa", lineHeight: 1.6 }}>
                 Text-to-image memakai provider yang kamu pilih. Kalau kamu upload
                 gambar, tombol edit akan otomatis memakai Replicate Flux Kontext
                 Pro.
@@ -1807,12 +1718,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               />
 
               {uploadedImagePreview ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10
-                  }}
-                >
+                <div style={{ display: "grid", gap: 10 }}>
                   <small style={{ color: "#a1a1aa" }}>
                     Preview gambar asli:
                   </small>
@@ -1885,13 +1791,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 }}
               />
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap"
-                }}
-              >
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {quickPrompts.map((item) => (
                   <button
                     key={item.label}
@@ -1915,12 +1815,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </div>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gap: 10
-              }}
-            >
+            <div style={{ display: "grid", gap: 10 }}>
               <button onClick={generateImage} disabled={imageLoading}>
                 {imageLoading
                   ? isEditMode
@@ -1931,13 +1826,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap"
-                }}
-              >
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {generatedImage?.dataUrl && (
                   <button onClick={downloadGeneratedImage}>
                     Download Image
@@ -1948,10 +1837,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   <button
                     onClick={saveGeneratedImage}
                     disabled={imageSaving}
-                    style={{
-                      width: "auto",
-                      background: "#16a34a"
-                    }}
+                    style={{ width: "auto", background: "#16a34a" }}
                   >
                     {imageSaving ? "Saving..." : "Save to History"}
                   </button>
@@ -2013,30 +1899,17 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   <div>
                     <strong>Hasil AI</strong>
 
-                    <p
-                      style={{
-                        margin: "6px 0 0",
-                        color: "#a1a1aa"
-                      }}
-                    >
+                    <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>
                       {generatedImage.edited
                         ? "Before / after hasil edit gambar"
                         : "Hasil generate variasi gambar dari prompt"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap"
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       onClick={downloadGeneratedImage}
-                      style={{
-                        width: "auto"
-                      }}
+                      style={{ width: "auto" }}
                     >
                       Download
                     </button>
@@ -2045,10 +1918,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       <button
                         onClick={saveGeneratedImage}
                         disabled={imageSaving}
-                        style={{
-                          width: "auto",
-                          background: "#16a34a"
-                        }}
+                        style={{ width: "auto", background: "#16a34a" }}
                       >
                         {imageSaving ? "Saving..." : "Save"}
                       </button>
@@ -2065,12 +1935,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       gap: 14
                     }}
                   >
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8
-                      }}
-                    >
+                    <div style={{ display: "grid", gap: 8 }}>
                       <small style={{ color: "#a1a1aa" }}>Before</small>
 
                       <img
@@ -2088,12 +1953,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       />
                     </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8
-                      }}
-                    >
+                    <div style={{ display: "grid", gap: 8 }}>
                       <small style={{ color: "#a1a1aa" }}>After</small>
 
                       <img
@@ -2192,12 +2052,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 <div>
                   <strong>History AI Image</strong>
 
-                  <p
-                    style={{
-                      margin: "6px 0 0",
-                      color: "#a1a1aa"
-                    }}
-                  >
+                  <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>
                     Gambar yang kamu simpan akan muncul di sini.
                   </p>
                 </div>
@@ -2282,12 +2137,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                         {item.provider || "-"}
                       </small>
 
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8
-                        }}
-                      >
+                      <div style={{ display: "flex", gap: 8 }}>
                         <button
                           onClick={() => useHistoryImage(item)}
                           style={{
