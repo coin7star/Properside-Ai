@@ -178,7 +178,7 @@ export default function Home() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
   const [generatedImage, setGeneratedImage] = useState(null);
-  const [imageProvider, setImageProvider] = useState("auto");
+  const [imageProvider, setImageProvider] = useState("huggingface");
 
   useEffect(() => {
     async function initAuth() {
@@ -585,12 +585,11 @@ export default function Home() {
   function useExamplePrompt(text) {
     setImagePrompt(text);
     setActiveTool("image");
+    setImageProvider("huggingface");
     setToolMenuOpen(false);
   }
 
   function getProviderLabel(provider) {
-    if (provider === "gemini") return "Gemini";
-    if (provider === "fal") return "fal.ai";
     if (provider === "huggingface") return "Hugging Face";
     return "Auto";
   }
@@ -649,7 +648,7 @@ export default function Home() {
           <h2 style={{ textAlign: "center" }}>AI Image Generator</h2>
 
           <p style={{ textAlign: "center" }}>
-            Buat gambar dari teks dan pilih dulu AI image yang mau dipakai.
+            Buat gambar dari teks memakai Hugging Face AI Image.
           </p>
 
           <div
@@ -672,10 +671,8 @@ export default function Home() {
                 }}
               >
                 {[
-                  { id: "auto", name: "Auto" },
-                  { id: "gemini", name: "Gemini" },
-                  { id: "fal", name: "fal.ai" },
-                  { id: "huggingface", name: "Hugging Face" }
+                  { id: "huggingface", name: "Hugging Face" },
+                  { id: "auto", name: "Auto" }
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -707,6 +704,18 @@ export default function Home() {
                 }}
               >
                 Mode aktif: {getProviderLabel(imageProvider)}
+              </small>
+
+              <small
+                style={{
+                  display: "block",
+                  marginTop: 6,
+                  color: "#71717a",
+                  lineHeight: 1.5
+                }}
+              >
+                Gemini dan fal.ai disembunyikan dulu karena quota/saldo belum
+                aktif. Provider utama sekarang memakai Hugging Face.
               </small>
             </div>
 
