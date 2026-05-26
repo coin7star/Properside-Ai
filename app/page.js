@@ -175,6 +175,7 @@ export default function Home() {
   const [chatImageFile, setChatImageFile] = useState(null);
   const [chatImagePreview, setChatImagePreview] = useState("");
   const [chatImageError, setChatImageError] = useState("");
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
 
   const [tempMails, setTempMails] = useState([]);
   const [activeTempMail, setActiveTempMail] = useState(null);
@@ -420,6 +421,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setChatImageError("");
   }
 
+  function closePreviewImage() {
+    setPreviewImageUrl("");
+  }
+
   async function sendMessage() {
     if (!message.trim() || loading || !user?.email) return;
 
@@ -649,6 +654,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setImageHistory([]);
     clearUploadedImage();
     clearChatImage();
+    closePreviewImage();
   }
 
   function handleImageUpload(event) {
@@ -1833,19 +1839,38 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 }
               >
                 {chat.imageUrl && (
-                  <img
-                    src={chat.imageUrl}
-                    alt="Gambar chat"
+                  <div
                     style={{
-                      width: "100%",
-                      maxHeight: 260,
-                      objectFit: "contain",
-                      borderRadius: 14,
-                      background: "#000",
-                      border: "1px solid rgba(255,255,255,0.12)",
+                      display: "grid",
+                      gap: 8,
                       marginBottom: 10
                     }}
-                  />
+                  >
+                    <img
+                      src={chat.imageUrl}
+                      alt="Gambar chat"
+                      onClick={() => setPreviewImageUrl(chat.imageUrl)}
+                      style={{
+                        width: "100%",
+                        maxHeight: 260,
+                        objectFit: "contain",
+                        borderRadius: 14,
+                        background: "#000",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        cursor: "zoom-in"
+                      }}
+                    />
+
+                    <small
+                      style={{
+                        color: "rgba(255,255,255,0.78)",
+                        fontSize: 12,
+                        textAlign: "center"
+                      }}
+                    >
+                      Tap gambar untuk preview besar
+                    </small>
+                  </div>
                 )}
 
                 <MessageContent text={chat.text} />
@@ -2233,6 +2258,77 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
         {renderActiveTool()}
       </section>
+
+      {previewImageUrl && (
+        <div
+          onClick={closePreviewImage}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.9)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16
+          }}
+        >
+          <button
+            onClick={closePreviewImage}
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              width: "auto",
+              background: "rgba(24, 24, 27, 0.95)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              color: "#fff",
+              borderRadius: 999,
+              padding: "10px 14px",
+              cursor: "pointer",
+              zIndex: 10000
+            }}
+          >
+            ✕ Tutup
+          </button>
+
+          <a
+            href={previewImageUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: 16,
+              left: 16,
+              background: "rgba(24, 24, 27, 0.95)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              color: "#fff",
+              borderRadius: 999,
+              padding: "10px 14px",
+              textDecoration: "none",
+              fontSize: 14,
+              zIndex: 10000
+            }}
+          >
+            Buka Asli
+          </a>
+
+          <img
+            src={previewImageUrl}
+            alt="Preview gambar besar"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "88vh",
+              objectFit: "contain",
+              borderRadius: 18,
+              background: "#000",
+              border: "1px solid rgba(255,255,255,0.14)"
+            }}
+          />
+        </div>
+      )}
     </main>
   );
 }
