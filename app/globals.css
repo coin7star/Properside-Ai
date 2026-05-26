@@ -3633,3 +3633,79 @@ body {
     grid-row: 3 !important;
   }
 }
+
+/* =====================================================
+   AI IMAGE DESKTOP LAYOUT FIX
+   Tempel paling bawah app/globals.css
+===================================================== */
+
+@media (min-width: 900px) {
+  /* Halaman tool selain chat jangan ikut layout chat */
+  .main-area > .placeholder-panel {
+    height: calc(100vh - 102px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 24px !important;
+  }
+
+  .main-area > .placeholder-panel .placeholder-card {
+    width: min(100%, 1180px) !important;
+    max-width: 1180px !important;
+    margin: 0 auto !important;
+  }
+
+  /* AI Image card jangan kepotong atas */
+  .placeholder-panel .placeholder-card[style] {
+    overflow: visible !important;
+  }
+
+  /* Area form AI Image lebih rapi di PC */
+  .placeholder-panel textarea {
+    min-height: 150px !important;
+    max-height: 260px !important;
+  }
+
+  /* Tombol quick prompt tetap rapi */
+  .placeholder-panel button {
+    white-space: nowrap;
+  }
+
+  /* History AI Image: paksa jadi grid kecil di PC */
+  .placeholder-panel img[src] {
+    max-width: 100%;
+  }
+
+  /* Target gambar history di dalam card agar tidak terlalu besar */
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 220px)) !important;
+    justify-content: start !important;
+    align-items: start !important;
+  }
+
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] > div {
+    max-width: 220px !important;
+  }
+
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] img {
+    width: 100% !important;
+    height: 180px !important;
+    aspect-ratio: auto !important;
+    object-fit: cover !important;
+  }
+
+  /* Kalau gambar hasil AI utama, tetap boleh besar tapi jangan kelewat */
+  .placeholder-panel img[alt="AI image history"] {
+    max-height: 180px !important;
+  }
+
+  /* Preview hasil generate utama jangan memenuhi layar terlalu besar */
+  .placeholder-panel img[alt]:not([alt="AI image history"]):not([alt^="Preview upload"]):not([alt^="Before edit"]) {
+    max-height: 520px !important;
+    object-fit: contain !important;
+  }
+
+  /* Scrollbar halaman AI Image hanya di kanan area main, bukan bikin layout gepeng */
+  .main-area {
+    overflow: hidden !important;
+  }
+}
