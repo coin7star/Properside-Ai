@@ -6,6 +6,30 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "./utils/supabaseClient";
 
 const CHAT_IMAGE_MAX_SIZE = 4 * 1024 * 1024;
+const CHAT_IMAGE_MAX_COUNT = 5;
+
+const GROQ_CHAT_MODELS = [
+  {
+    id: "llama-3.1-8b-instant",
+    name: "Llama 3.1 8B",
+    note: "Cepat dan ringan"
+  },
+  {
+    id: "llama-3.3-70b-versatile",
+    name: "Llama 3.3 70B",
+    note: "Lebih pintar, lebih berat"
+  },
+  {
+    id: "openai/gpt-oss-20b",
+    name: "GPT OSS 20B",
+    note: "Cepat untuk coding/chat"
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    name: "GPT OSS 120B",
+    note: "Lebih kuat untuk reasoning"
+  }
+];
 
 const tools = [
   { id: "home", name: "Beranda", icon: "🏠" },
@@ -172,10 +196,13 @@ export default function Home() {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [chatImageFile, setChatImageFile] = useState(null);
-  const [chatImagePreview, setChatImagePreview] = useState("");
+  const [chatImageFiles, setChatImageFiles] = useState([]);
+  const [chatImagePreviews, setChatImagePreviews] = useState([]);
   const [chatImageError, setChatImageError] = useState("");
   const [previewImageUrl, setPreviewImageUrl] = useState("");
+  const [selectedGroqModel, setSelectedGroqModel] = useState(
+    "llama-3.1-8b-instant"
+  );
 
   const [tempMails, setTempMails] = useState([]);
   const [activeTempMail, setActiveTempMail] = useState(null);
@@ -249,6 +276,18 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const savedModel = localStorage.getItem("properside_groq_model");
+
+    if (savedModel && GROQ_CHAT_MODELS.some((item) => item.id === savedModel)) {
+      setSelectedGroqModel(savedModel);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("properside_groq_model", selectedGroqModel);
+  }, [selectedGroqModel]);
+
+  useEffect(() => {
     if (user?.email) {
       loadSessions(user.email);
       loadTempMails(user.email);
@@ -266,11 +305,13 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (chatImagePreview) {
-        URL.revokeObjectURL(chatImagePreview);
-      }
+      chatImagePreviews.forEach((item) => {
+        if (item?.url) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
     };
-  }, [chatImagePreview]);
+  }, [chatImagePreviews]);
 
   function makeVariationPrompt(prompt) {
     return `${prompt.trim()}
@@ -314,7 +355,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         (data.data || []).map((msg) => ({
           role: msg.role,
           text: msg.content,
-          imageUrl: msg.image_url || ""
+          imageUrl: msg.image_url || "",
+          imageUrls:
+            Array.isArray(msg.image_urls) && msg.image_urls.length > 0
+              ? msg.image_urls
+              : msg.image_url
+              ? [msg.image_url]
+              : []
         }))
       );
     } catch {
@@ -381,43 +428,75 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   function handleChatImageUpload(event) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
 
-    if (!file) return;
+    if (files.length === 0) return;
 
     setChatImageError("");
 
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-    if (!allowedTypes.includes(file.type)) {
-      setChatImageError("File harus berupa gambar JPG, PNG, atau WEBP.");
+    const currentCount = chatImageFiles.length;
+    const remainingSlots = CHAT_IMAGE_MAX_COUNT - currentCount;
+
+    if (remainingSlots <= 0) {
+      setChatImageError(`Maksimal ${CHAT_IMAGE_MAX_COUNT} gambar sekali kirim.`);
       event.target.value = "";
       return;
     }
 
-    if (file.size > CHAT_IMAGE_MAX_SIZE) {
-      setChatImageError("Ukuran gambar terlalu besar. Maksimal 4MB.");
-      event.target.value = "";
-      return;
+    const selectedFiles = files.slice(0, remainingSlots);
+    const validFiles = [];
+    const validPreviews = [];
+
+    for (const file of selectedFiles) {
+      if (!allowedTypes.includes(file.type)) {
+        setChatImageError("File harus berupa gambar JPG, PNG, atau WEBP.");
+        event.target.value = "";
+        return;
+      }
+
+      if (file.size > CHAT_IMAGE_MAX_SIZE) {
+        setChatImageError("Ukuran gambar terlalu besar. Maksimal 4MB per gambar.");
+        event.target.value = "";
+        return;
+      }
+
+      validFiles.push(file);
+      validPreviews.push({
+        url: URL.createObjectURL(file),
+        name: file.name
+      });
     }
 
-    if (chatImagePreview) {
-      URL.revokeObjectURL(chatImagePreview);
-    }
+    setChatImageFiles((prev) => [...prev, ...validFiles]);
+    setChatImagePreviews((prev) => [...prev, ...validPreviews]);
 
-    const previewUrl = URL.createObjectURL(file);
-
-    setChatImageFile(file);
-    setChatImagePreview(previewUrl);
+    event.target.value = "";
   }
 
-  function clearChatImage() {
-    if (chatImagePreview) {
-      URL.revokeObjectURL(chatImagePreview);
+  function clearChatImage(index = null) {
+    if (index === null) {
+      chatImagePreviews.forEach((item) => {
+        if (item?.url) {
+          URL.revokeObjectURL(item.url);
+        }
+      });
+
+      setChatImageFiles([]);
+      setChatImagePreviews([]);
+      setChatImageError("");
+      return;
     }
 
-    setChatImageFile(null);
-    setChatImagePreview("");
+    const target = chatImagePreviews[index];
+
+    if (target?.url) {
+      URL.revokeObjectURL(target.url);
+    }
+
+    setChatImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setChatImagePreviews((prev) => prev.filter((_, i) => i !== index));
     setChatImageError("");
   }
 
@@ -429,8 +508,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     if (!message.trim() || loading || !user?.email) return;
 
     const userText = message.trim();
-    const selectedImage = chatImageFile;
-    const localImagePreview = selectedImage ? chatImagePreview : "";
+    const selectedImages = chatImageFiles;
+    const localImageUrls = chatImagePreviews.map((item) => item.url);
 
     setMessage("");
     setLoading(true);
@@ -440,26 +519,31 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       ...prev,
       {
         role: "user",
-        text: selectedImage
-          ? `${userText}\n\n[User mengirim gambar untuk dianalisis]`
-          : userText,
-        imageUrl: localImagePreview
+        text:
+          selectedImages.length > 0
+            ? `${userText}\n\n[User mengirim ${selectedImages.length} gambar untuk dianalisis]`
+            : userText,
+        imageUrl: localImageUrls[0] || "",
+        imageUrls: localImageUrls
       }
     ]);
 
     try {
       let res;
 
-      if (selectedImage) {
+      if (selectedImages.length > 0) {
         const formData = new FormData();
         formData.append("message", userText);
         formData.append("user_email", user.email);
+        formData.append("selected_model", selectedGroqModel);
 
         if (activeSessionId) {
           formData.append("session_id", activeSessionId);
         }
 
-        formData.append("image", selectedImage);
+        selectedImages.forEach((file) => {
+          formData.append("images", file);
+        });
 
         res = await fetch("/api/chat", {
           method: "POST",
@@ -474,7 +558,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
           body: JSON.stringify({
             message: userText,
             user_email: user.email,
-            session_id: activeSessionId
+            session_id: activeSessionId,
+            selected_model: selectedGroqModel
           })
         });
       }
@@ -488,12 +573,24 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       setChats((prev) => {
         const nextChats = [...prev];
 
-        if (data?.image_url) {
+        if (data?.image_urls?.length) {
+          for (let i = nextChats.length - 1; i >= 0; i -= 1) {
+            if (nextChats[i]?.role === "user" && nextChats[i]?.imageUrls?.length) {
+              nextChats[i] = {
+                ...nextChats[i],
+                imageUrl: data.image_urls[0] || "",
+                imageUrls: data.image_urls
+              };
+              break;
+            }
+          }
+        } else if (data?.image_url) {
           for (let i = nextChats.length - 1; i >= 0; i -= 1) {
             if (nextChats[i]?.role === "user" && nextChats[i]?.imageUrl) {
               nextChats[i] = {
                 ...nextChats[i],
-                imageUrl: data.image_url
+                imageUrl: data.image_url,
+                imageUrls: [data.image_url]
               };
               break;
             }
@@ -1823,8 +1920,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               <div className="empty-chat">
                 <h2>Apa yang ingin kamu buat hari ini?</h2>
                 <p>
-                  Tulis pesan, paste kode, atau upload screenshot error. Maks
-                  gambar 4MB.
+                  Tulis pesan, paste kode, atau upload sampai 5 screenshot.
+                  Maks 4MB per gambar.
                 </p>
               </div>
             )}
@@ -1838,38 +1935,55 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     : "message ai-message"
                 }
               >
-                {chat.imageUrl && (
+                {(chat.imageUrls?.length > 0 || chat.imageUrl) && (
                   <div
                     style={{
                       display: "grid",
+                      gridTemplateColumns:
+                        (chat.imageUrls?.length
+                          ? chat.imageUrls
+                          : [chat.imageUrl]
+                        ).length > 1
+                          ? "repeat(auto-fit, minmax(120px, 1fr))"
+                          : "1fr",
                       gap: 8,
                       marginBottom: 10
                     }}
                   >
-                    <img
-                      src={chat.imageUrl}
-                      alt="Gambar chat"
-                      onClick={() => setPreviewImageUrl(chat.imageUrl)}
-                      style={{
-                        width: "100%",
-                        maxHeight: 260,
-                        objectFit: "contain",
-                        borderRadius: 14,
-                        background: "#000",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        cursor: "zoom-in"
-                      }}
-                    />
+                    {(chat.imageUrls?.length
+                      ? chat.imageUrls
+                      : [chat.imageUrl]
+                    ).map((url, imageIndex) => (
+                      <div
+                        key={`${url}-${imageIndex}`}
+                        style={{ display: "grid", gap: 6 }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Gambar chat ${imageIndex + 1}`}
+                          onClick={() => setPreviewImageUrl(url)}
+                          style={{
+                            width: "100%",
+                            maxHeight: 260,
+                            objectFit: "contain",
+                            borderRadius: 14,
+                            background: "#000",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            cursor: "zoom-in"
+                          }}
+                        />
 
-                    <small
-                      style={{
-                        color: "rgba(255,255,255,0.78)",
-                        fontSize: 12,
-                        textAlign: "center"
-                      }}
-                    >
-                      Tap gambar untuk preview besar
-                    </small>
+                        <small
+                          style={{
+                            color: "rgba(255,255,255,0.78)",
+                            fontSize: 12,
+                            textAlign: "center"
+                          }}
+                        >
+                          Tap preview {imageIndex + 1}
+                        </small>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -1893,7 +2007,45 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               gap: 10
             }}
           >
-            {chatImagePreview && (
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                background: "#101014",
+                border: "1px solid #27272a",
+                borderRadius: 14,
+                padding: 10
+              }}
+            >
+              <strong style={{ fontSize: 14 }}>Model AI Chat</strong>
+
+              <select
+                value={selectedGroqModel}
+                onChange={(e) => setSelectedGroqModel(e.target.value)}
+                style={{
+                  width: "100%",
+                  borderRadius: 12,
+                  border: "1px solid #2f2f35",
+                  background: "#0f0f11",
+                  color: "#fff",
+                  padding: 12,
+                  outline: "none"
+                }}
+              >
+                {GROQ_CHAT_MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name} — {model.note}
+                  </option>
+                ))}
+              </select>
+
+              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
+                Kalau upload gambar, sistem otomatis memakai Groq Vision.
+                Selector ini dipakai untuk chat teks biasa.
+              </small>
+            </div>
+
+            {chatImagePreviews.length > 0 && (
               <div
                 style={{
                   background: "#101014",
@@ -1901,7 +2053,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   borderRadius: 14,
                   padding: 10,
                   display: "grid",
-                  gap: 8
+                  gap: 10
                 }}
               >
                 <div
@@ -1909,15 +2061,17 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     display: "flex",
                     justifyContent: "space-between",
                     gap: 8,
-                    alignItems: "center"
+                    alignItems: "center",
+                    flexWrap: "wrap"
                   }}
                 >
                   <small style={{ color: "#a1a1aa" }}>
-                    Gambar siap dikirim dan akan tersimpan di history chat
+                    {chatImagePreviews.length} gambar siap dikirim dan akan
+                    tersimpan di history chat
                   </small>
 
                   <button
-                    onClick={clearChatImage}
+                    onClick={() => clearChatImage()}
                     style={{
                       width: "auto",
                       padding: "7px 10px",
@@ -1925,22 +2079,46 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                       border: "1px solid #2f2f35"
                     }}
                   >
-                    Hapus
+                    Hapus Semua
                   </button>
                 </div>
 
-                <img
-                  src={chatImagePreview}
-                  alt="Preview gambar chat"
+                <div
                   style={{
-                    width: "100%",
-                    maxHeight: 220,
-                    objectFit: "contain",
-                    borderRadius: 12,
-                    background: "#000",
-                    border: "1px solid #27272a"
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(120px, 1fr))",
+                    gap: 10
                   }}
-                />
+                >
+                  {chatImagePreviews.map((item, index) => (
+                    <div key={item.url} style={{ display: "grid", gap: 6 }}>
+                      <img
+                        src={item.url}
+                        alt={item.name || `Preview ${index + 1}`}
+                        style={{
+                          width: "100%",
+                          height: 120,
+                          objectFit: "contain",
+                          borderRadius: 12,
+                          background: "#000",
+                          border: "1px solid #27272a"
+                        }}
+                      />
+
+                      <button
+                        onClick={() => clearChatImage(index)}
+                        style={{
+                          width: "100%",
+                          padding: "7px 10px",
+                          background: "#7f1d1d"
+                        }}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1984,6 +2162,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 📎 Upload Gambar
                 <input
                   type="file"
+                  multiple
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handleChatImageUpload}
                   style={{ display: "none" }}
@@ -1991,7 +2170,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </label>
 
               <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
-                Maks 4MB • JPG/PNG/WEBP • gambar akan tersimpan di history chat.
+                Maks 5 gambar • 4MB/gambar • JPG/PNG/WEBP • tersimpan di
+                history chat.
               </small>
             </div>
           </div>
@@ -2001,7 +2181,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
-                chatImageFile
+                chatImageFiles.length > 0
                   ? "Tulis pertanyaan tentang gambar ini..."
                   : "Tulis perintah untuk AI..."
               }
@@ -2016,8 +2196,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             <button onClick={sendMessage} disabled={loading}>
               {loading
                 ? "Mengirim..."
-                : chatImageFile
-                ? "Kirim + Gambar"
+                : chatImageFiles.length > 0
+                ? `Kirim + ${chatImageFiles.length} Gambar`
                 : "Kirim"}
             </button>
           </div>
