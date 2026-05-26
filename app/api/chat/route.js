@@ -76,12 +76,13 @@ function safeEmailFolder(email = "user") {
 }
 
 async function uploadChatImageToStorage({
+  supabase,
   file,
   user_email,
   session_id,
   message_id
 }) {
-  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig();
+  const { supabaseUrl } = getSupabaseConfig();
 
   const ext = getImageExt(file.type);
   const emailFolder = safeEmailFolder(user_email);
@@ -91,31 +92,22 @@ async function uploadChatImageToStorage({
 
   const buffer = await file.arrayBuffer();
 
-  const uploadRes = await fetch(
-    `${supabaseUrl}/storage/v1/object/${CHAT_IMAGE_BUCKET}/${storagePath}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-        "Content-Type": file.type || "image/png",
-        "x-upsert": "false"
-      },
-      body: buffer
-    }
-  );
+  const { data, error } = await supabase.storage
+    .from(CHAT_IMAGE_BUCKET)
+    .upload(storagePath, buffer, {
+      contentType: file.type || "image/png",
+      upsert: false
+    });
 
-  const uploadText = await uploadRes.text();
-
-  if (!uploadRes.ok) {
+  if (error) {
     throw new Error(
-      uploadText || "Gagal upload gambar chat ke Supabase Storage."
+      "Gagal upload gambar chat ke Supabase Storage: " + error.message
     );
   }
 
   return {
-    image_url: `${supabaseUrl}/storage/v1/object/public/${CHAT_IMAGE_BUCKET}/${storagePath}`,
-    image_storage_path: storagePath
+    image_url: `${supabaseUrl}/storage/v1/object/public/${CHAT_IMAGE_BUCKET}/${data.path}`,
+    image_storage_path: data.path
   };
 }
 
@@ -368,9 +360,11 @@ export async function POST(req) {
     const currentStoredContent = hasImage
       ? `${message}
 
-[User mengirim gambar: ${imageData.name}, ${imageData.mimeType}, ukuran ${(imageData.size / 1024 / 1024).toFixed(
-          2
-        )}MB. Gambar tersimpan di history chat.]`
+[User mengirim gambar: ${imageData.name}, ${imageData.mimeType}, ukuran ${(
+          imageData.size /
+          1024 /
+          1024
+        ).toFixed(2)}MB. Gambar tersimpan di history chat.]`
       : message;
 
     if (!session_id) {
@@ -389,10 +383,13 @@ export async function POST(req) {
         .single();
 
       if (sessionError) {
-        return jsonResponse({
-          reply: "Gagal membuat session chat.",
-          detail: sessionError.message
-        });
+        return jsonResponse(
+          {
+            reply: "Gagal membuat session chat.",
+            detail: sessionError.message
+          },
+          500
+        );
       }
 
       session_id = sessionData.id;
@@ -407,6 +404,7 @@ export async function POST(req) {
 
     if (hasImage && imageData?.file) {
       imageStorageData = await uploadChatImageToStorage({
+        supabase,
         file: imageData.file,
         user_email,
         session_id,
@@ -414,15 +412,56 @@ export async function POST(req) {
       });
     }
 
-    await supabase.from("chat_messages").insert({
-      id: userMessageId,
-      session_id,
-      user_email,
-      role: "user",
-      content: currentStoredContent,
-      image_url: imageStorageData.image_url,
-      image_storage_path: imageStorageData.image_storage_path
-    });
+    const { error: insertUserMessageError } = await supabase
+      .from("chat_messages")
+      .insert({
+        id: userMessageId,
+        session_id,
+        user_email,
+        role: "user",
+        content: currentStoredContent,
+        image_url: imageStorageData.image_url || null,
+        image_storage_path: imageStorageData.image_storage_path || null
+      });
+
+    if (insertUserMessageError) {
+      return jsonResponse(
+        {
+          reply:
+            "Gagal menyimpan chat user ke database: " +
+            insertUserMessageError.message,
+          session_id,
+          image_url: imageStorageData.image_url || null,
+          image_storage_path: imageStorageData.image_storage_path || null
+        },
+        500
+      );
+    }
+
+    if (hasImage && imageStorageData.image_url) {
+      const { error: updateImageError } = await supabase
+        .from("chat_messages")
+        .update({
+          image_url: imageStorageData.image_url,
+          image_storage_path: imageStorageData.image_storage_path
+        })
+        .eq("id", userMessageId)
+        .eq("user_email", user_email);
+
+      if (updateImageError) {
+        return jsonResponse(
+          {
+            reply:
+              "Gambar berhasil masuk Storage, tapi gagal update image_url ke database: " +
+              updateImageError.message,
+            session_id,
+            image_url: imageStorageData.image_url,
+            image_storage_path: imageStorageData.image_storage_path
+          },
+          500
+        );
+      }
+    }
 
     const { data: memoryMessages, error: memoryError } = await supabase
       .from("chat_messages")
@@ -467,7 +506,8 @@ export async function POST(req) {
           reply: cleanGroqError(data),
           detail: data,
           session_id,
-          image_url: imageStorageData.image_url
+          image_url: imageStorageData.image_url,
+          image_storage_path: imageStorageData.image_storage_path
         },
         500
       );
@@ -476,18 +516,38 @@ export async function POST(req) {
     const aiText =
       data?.choices?.[0]?.message?.content || "AI tidak memberikan jawaban.";
 
-    await supabase.from("chat_messages").insert({
-      session_id,
-      user_email,
-      role: "ai",
-      content: aiText
-    });
+    const { error: insertAiMessageError } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id,
+        user_email,
+        role: "ai",
+        content: aiText
+      });
+
+    if (insertAiMessageError) {
+      return jsonResponse(
+        {
+          reply:
+            aiText +
+            "\n\nCatatan: Jawaban AI berhasil dibuat, tapi gagal menyimpan jawaban ke history: " +
+            insertAiMessageError.message,
+          session_id,
+          used_image: hasImage,
+          image_url: imageStorageData.image_url,
+          image_storage_path: imageStorageData.image_storage_path,
+          model: selectedModel
+        },
+        200
+      );
+    }
 
     return jsonResponse({
       reply: aiText,
       session_id,
       used_image: hasImage,
       image_url: imageStorageData.image_url,
+      image_storage_path: imageStorageData.image_storage_path,
       model: selectedModel
     });
   } catch (error) {
