@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { getSupabase } from "./utils/supabaseClient";
 
+const CHAT_IMAGE_MAX_SIZE = 4 * 1024 * 1024;
+
 const tools = [
   { id: "home", name: "Beranda", icon: "🏠" },
   { id: "chat", name: "AI Chat", icon: "💬" },
@@ -170,6 +172,10 @@ export default function Home() {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const [chatImageFile, setChatImageFile] = useState(null);
+  const [chatImagePreview, setChatImagePreview] = useState("");
+  const [chatImageError, setChatImageError] = useState("");
+
   const [tempMails, setTempMails] = useState([]);
   const [activeTempMail, setActiveTempMail] = useState(null);
   const [tempMessages, setTempMessages] = useState([]);
@@ -257,6 +263,14 @@ export default function Home() {
     };
   }, [uploadedImagePreview]);
 
+  useEffect(() => {
+    return () => {
+      if (chatImagePreview) {
+        URL.revokeObjectURL(chatImagePreview);
+      }
+    };
+  }, [chatImagePreview]);
+
   function makeVariationPrompt(prompt) {
     return `${prompt.trim()}
 
@@ -284,6 +298,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setActiveSessionId(sessionId);
     setActiveTool("chat");
     setToolMenuOpen(false);
+    clearChatImage();
 
     try {
       const res = await fetch(
@@ -311,6 +326,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setActiveSessionId(null);
     setChats([]);
     setMessage("");
+    clearChatImage();
   }
 
   async function renameSession(sessionId) {
@@ -359,6 +375,128 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       loadSessions(user.email);
     } catch {
       alert("Gagal hapus chat.");
+    }
+  }
+
+  function handleChatImageUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setChatImageError("");
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setChatImageError("File harus berupa gambar JPG, PNG, atau WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > CHAT_IMAGE_MAX_SIZE) {
+      setChatImageError("Ukuran gambar terlalu besar. Maksimal 4MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (chatImagePreview) {
+      URL.revokeObjectURL(chatImagePreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setChatImageFile(file);
+    setChatImagePreview(previewUrl);
+  }
+
+  function clearChatImage() {
+    if (chatImagePreview) {
+      URL.revokeObjectURL(chatImagePreview);
+    }
+
+    setChatImageFile(null);
+    setChatImagePreview("");
+    setChatImageError("");
+  }
+
+  async function sendMessage() {
+    if (!message.trim() || loading || !user?.email) return;
+
+    const userText = message.trim();
+    const selectedImage = chatImageFile;
+
+    setMessage("");
+    setLoading(true);
+    setChatImageError("");
+
+    setChats((prev) => [
+      ...prev,
+      {
+        role: "user",
+        text: selectedImage
+          ? `${userText}\n\n[User mengirim gambar untuk dianalisis]`
+          : userText
+      }
+    ]);
+
+    try {
+      let res;
+
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append("message", userText);
+        formData.append("user_email", user.email);
+
+        if (activeSessionId) {
+          formData.append("session_id", activeSessionId);
+        }
+
+        formData.append("image", selectedImage);
+
+        res = await fetch("/api/chat", {
+          method: "POST",
+          body: formData
+        });
+      } else {
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: userText,
+            user_email: user.email,
+            session_id: activeSessionId
+          })
+        });
+      }
+
+      const data = await res.json();
+
+      if (data.session_id && !activeSessionId) {
+        setActiveSessionId(data.session_id);
+      }
+
+      setChats((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: data.reply || "Tidak ada jawaban."
+        }
+      ]);
+
+      clearChatImage();
+      loadSessions(user.email);
+    } catch {
+      setChats((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: "Gagal menghubungi API."
+        }
+      ]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -491,63 +629,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setImageError("");
     setImageHistory([]);
     clearUploadedImage();
-  }
-
-  async function sendMessage() {
-    if (!message.trim() || loading || !user?.email) return;
-
-    const userText = message.trim();
-
-    setMessage("");
-    setLoading(true);
-
-    setChats((prev) => [
-      ...prev,
-      {
-        role: "user",
-        text: userText
-      }
-    ]);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userText,
-          user_email: user.email,
-          session_id: activeSessionId
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.session_id && !activeSessionId) {
-        setActiveSessionId(data.session_id);
-      }
-
-      setChats((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: data.reply || "Tidak ada jawaban."
-        }
-      ]);
-
-      loadSessions(user.email);
-    } catch {
-      setChats((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: "Gagal menghubungi API."
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    clearChatImage();
   }
 
   function handleImageUpload(event) {
@@ -1715,7 +1797,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             {chats.length === 0 && (
               <div className="empty-chat">
                 <h2>Apa yang ingin kamu buat hari ini?</h2>
-                <p>Buat chat baru atau pilih history chat di atas.</p>
+                <p>
+                  Tulis pesan, paste kode, atau upload screenshot error. Maks
+                  gambar 4MB.
+                </p>
               </div>
             )}
 
@@ -1739,11 +1824,128 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             )}
           </div>
 
+          <div
+            style={{
+              padding: "10px 14px",
+              borderTop: "1px solid #27272a",
+              background: "#0f0f11",
+              display: "grid",
+              gap: 10
+            }}
+          >
+            {chatImagePreview && (
+              <div
+                style={{
+                  background: "#101014",
+                  border: "1px solid #27272a",
+                  borderRadius: 14,
+                  padding: 10,
+                  display: "grid",
+                  gap: 8
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    alignItems: "center"
+                  }}
+                >
+                  <small style={{ color: "#a1a1aa" }}>
+                    Gambar siap dikirim ke AI Vision
+                  </small>
+
+                  <button
+                    onClick={clearChatImage}
+                    style={{
+                      width: "auto",
+                      padding: "7px 10px",
+                      background: "#18181b",
+                      border: "1px solid #2f2f35"
+                    }}
+                  >
+                    Hapus
+                  </button>
+                </div>
+
+                <img
+                  src={chatImagePreview}
+                  alt="Preview gambar chat"
+                  style={{
+                    width: "100%",
+                    maxHeight: 220,
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    background: "#000",
+                    border: "1px solid #27272a"
+                  }}
+                />
+              </div>
+            )}
+
+            {chatImageError && (
+              <div
+                style={{
+                  background: "rgba(220, 38, 38, 0.15)",
+                  color: "#fca5a5",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  borderRadius: 12,
+                  padding: 10,
+                  lineHeight: 1.5
+                }}
+              >
+                {chatImageError}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                alignItems: "center"
+              }}
+            >
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#18181b",
+                  border: "1px solid #2f2f35",
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontSize: 14
+                }}
+              >
+                📎 Upload Gambar
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleChatImageUpload}
+                  style={{ display: "none" }}
+                />
+              </label>
+
+              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
+                Maks 4MB • JPG/PNG/WEBP • cocok untuk screenshot error, UI,
+                coding, atau gambar masalah.
+              </small>
+            </div>
+          </div>
+
           <div className="input-area">
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Tulis perintah untuk AI..."
+              placeholder={
+                chatImageFile
+                  ? "Tulis pertanyaan tentang gambar ini..."
+                  : "Tulis perintah untuk AI..."
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -1753,7 +1955,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             />
 
             <button onClick={sendMessage} disabled={loading}>
-              {loading ? "Mengirim..." : "Kirim"}
+              {loading ? "Mengirim..." : chatImageFile ? "Kirim + Gambar" : "Kirim"}
             </button>
           </div>
         </section>
