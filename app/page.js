@@ -785,6 +785,18 @@ export default function Home() {
     return "Auto";
   }
 
+  function isLimitError(text = "") {
+    const lower = text.toLowerCase();
+
+    return (
+      lower.includes("quota") ||
+      lower.includes("billing") ||
+      lower.includes("limit") ||
+      lower.includes("credit") ||
+      lower.includes("payment")
+    );
+  }
+
   function renderChatHistory() {
     return (
       <div className="history-box">
@@ -819,6 +831,47 @@ export default function Home() {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  function renderImageErrorBox() {
+    if (!imageError) return null;
+
+    const limit = isLimitError(imageError);
+
+    return (
+      <div
+        style={{
+          background: "rgba(220, 38, 38, 0.15)",
+          color: "#fca5a5",
+          border: "1px solid rgba(239, 68, 68, 0.3)",
+          borderRadius: 14,
+          padding: 14,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+          lineHeight: 1.6
+        }}
+      >
+        <strong style={{ display: "block", marginBottom: 6 }}>
+          {limit ? "Limit Replicate" : "Terjadi Error"}
+        </strong>
+
+        <div>{imageError}</div>
+
+        {limit && (
+          <small
+            style={{
+              display: "block",
+              marginTop: 10,
+              color: "#fecaca"
+            }}
+          >
+            Fitur edit gambar memakai Replicate dan bisa habis kuota. Web tidak
+            rusak. Kamu masih bisa hapus upload gambar lalu generate gambar
+            biasa memakai Hugging Face.
+          </small>
+        )}
       </div>
     );
   }
@@ -1011,6 +1064,23 @@ export default function Home() {
                 Text-to-image memakai provider yang kamu pilih. Kalau kamu upload
                 gambar, tombol edit akan otomatis memakai Replicate Flux Kontext
                 Pro.
+              </small>
+
+              <small
+                style={{
+                  color: "#fbbf24",
+                  lineHeight: 1.6,
+                  background: "rgba(245, 158, 11, 0.12)",
+                  border: "1px solid rgba(245, 158, 11, 0.25)",
+                  borderRadius: 12,
+                  padding: 10,
+                  display: "block"
+                }}
+              >
+                Catatan: fitur edit gambar memakai Replicate dan bisa terkena
+                limit/free quota. Kalau muncul pesan quota atau billing, berarti
+                jatah Replicate sedang habis. Generate gambar biasa tetap bisa
+                pakai Hugging Face.
               </small>
             </div>
 
@@ -1245,22 +1315,7 @@ export default function Home() {
               </div>
             )}
 
-            {imageError && (
-              <div
-                style={{
-                  background: "rgba(220, 38, 38, 0.15)",
-                  color: "#fca5a5",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  borderRadius: 14,
-                  padding: 14,
-                  overflowWrap: "anywhere",
-                  wordBreak: "break-word",
-                  lineHeight: 1.6
-                }}
-              >
-                {imageError}
-              </div>
-            )}
+            {renderImageErrorBox()}
 
             {generatedImage?.dataUrl && (
               <div
