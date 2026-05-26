@@ -2,33 +2,17 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabase } from "./utils/supabaseClient";
 
 const CHAT_IMAGE_MAX_SIZE = 4 * 1024 * 1024;
 const CHAT_IMAGE_MAX_COUNT = 5;
 
 const GROQ_CHAT_MODELS = [
-  {
-    id: "llama-3.1-8b-instant",
-    name: "Llama 3.1 8B",
-    note: "Cepat dan ringan"
-  },
-  {
-    id: "llama-3.3-70b-versatile",
-    name: "Llama 3.3 70B",
-    note: "Lebih pintar, lebih berat"
-  },
-  {
-    id: "openai/gpt-oss-20b",
-    name: "GPT OSS 20B",
-    note: "Cepat untuk coding/chat"
-  },
-  {
-    id: "openai/gpt-oss-120b",
-    name: "GPT OSS 120B",
-    note: "Lebih kuat untuk reasoning"
-  }
+  { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B", note: "Cepat dan ringan" },
+  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", note: "Lebih pintar, lebih berat" },
+  { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", note: "Cepat untuk coding/chat" },
+  { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", note: "Lebih kuat untuk reasoning" }
 ];
 
 const tools = [
@@ -44,17 +28,14 @@ const tools = [
 ];
 
 function renderInlineFormat(text, keyPrefix = "inline") {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-
-  return parts.map((part, index) => {
-    const isBold = part.startsWith("**") && part.endsWith("**");
-
-    if (isBold) {
-      return <strong key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>;
-    }
-
-    return <span key={`${keyPrefix}-${index}`}>{part}</span>;
-  });
+  return String(text || "")
+    .split(/(\*\*.*?\*\*)/g)
+    .map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>;
+      }
+      return <span key={`${keyPrefix}-${index}`}>{part}</span>;
+    });
 }
 
 function normalizeCodeLanguage(language = "") {
@@ -99,9 +80,7 @@ function buildPreviewHtml(language, code) {
       background: #ffffff;
       color: #111827;
     }
-    body {
-      padding: 18px;
-    }
+    body { padding: 18px; }
   `;
 
   if (lang === "html" || lang === "xml" || looksLikeHtml(rawCode)) {
@@ -130,18 +109,13 @@ ${rawCode}
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    ${baseStyle}
-
-    ${rawCode}
-  </style>
+  <style>${baseStyle}\n${rawCode}</style>
 </head>
 <body>
   <main class="preview-demo">
     <h1>CSS Live Preview</h1>
     <p>Ini contoh HTML dummy untuk melihat efek CSS kamu.</p>
     <button>Contoh Button</button>
-
     <div class="card">
       <h2>Card Demo</h2>
       <p>Kalau CSS kamu memakai class tertentu, minta AI buatkan HTML + CSS dalam satu file.</p>
@@ -159,14 +133,12 @@ ${rawCode}
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     ${baseStyle}
-
     #app {
       min-height: 160px;
       border: 1px dashed #cbd5e1;
       border-radius: 12px;
       padding: 16px;
     }
-
     pre {
       white-space: pre-wrap;
       background: #fee2e2;
@@ -178,7 +150,6 @@ ${rawCode}
 </head>
 <body>
   <div id="app">JavaScript Live Preview siap.</div>
-
   <script>
     window.addEventListener("error", function(event) {
       const pre = document.createElement("pre");
@@ -206,17 +177,8 @@ ${rawCode}
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     ${baseStyle}
-
-    body {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-    }
-
-    svg {
-      max-width: 100%;
-      height: auto;
-    }
+    body { display: grid; place-items: center; min-height: 100vh; }
+    svg { max-width: 100%; height: auto; }
   </style>
 </head>
 <body>
@@ -256,20 +218,14 @@ function CodePreviewBlock({ language, code, blockId }) {
         URL.revokeObjectURL(previewUrl);
         setPreviewUrl("");
       }
-
       return;
     }
 
-    const blob = new Blob([previewHtml], {
-      type: "text/html"
-    });
-
+    const blob = new Blob([previewHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     setPreviewUrl(url);
 
-    return () => {
-      URL.revokeObjectURL(url);
-    };
+    return () => URL.revokeObjectURL(url);
   }, [showPreview, refreshKey, previewHtml, previewable]);
 
   async function copyCode() {
@@ -294,13 +250,7 @@ function CodePreviewBlock({ language, code, blockId }) {
       <div className="code-header">
         <span>{language || "code"}</span>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap"
-          }}
-        >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {previewable && (
             <button className="copy-btn" onClick={togglePreview}>
               {showPreview ? "Tutup Live" : "Live Preview"}
@@ -351,21 +301,12 @@ function CodePreviewBlock({ language, code, blockId }) {
               {bigPreview ? "Live Preview Besar" : "Live HTML Preview"}
             </small>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap"
-              }}
-            >
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="copy-btn" onClick={refreshPreview}>
                 Refresh
               </button>
 
-              <button
-                className="copy-btn"
-                onClick={() => setBigPreview((prev) => !prev)}
-              >
+              <button className="copy-btn" onClick={() => setBigPreview((prev) => !prev)}>
                 {bigPreview ? "Kecilkan" : "Buka Besar"}
               </button>
             </div>
@@ -390,29 +331,15 @@ function CodePreviewBlock({ language, code, blockId }) {
               }}
             />
           ) : (
-            <div
-              style={{
-                padding: 16,
-                color: "#a1a1aa"
-              }}
-            >
-              Menyiapkan live preview...
-            </div>
+            <div style={{ padding: 16, color: "#a1a1aa" }}>Menyiapkan live preview...</div>
           )}
         </div>
       )}
 
       {previewable && (
-        <small
-          style={{
-            display: "block",
-            color: "#a1a1aa",
-            marginTop: 8,
-            lineHeight: 1.5
-          }}
-        >
-          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Klik Buka Besar
-          tidak mereset preview. Yang reset hanya tombol Refresh.
+        <small style={{ display: "block", color: "#a1a1aa", marginTop: 8, lineHeight: 1.5 }}>
+          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Klik Buka Besar tidak mereset preview.
+          Yang reset hanya tombol Refresh.
         </small>
       )}
     </div>
@@ -422,7 +349,7 @@ function CodePreviewBlock({ language, code, blockId }) {
 function MessageContent({ text }) {
   if (!text) return null;
 
-  const parts = text.split(/```/g);
+  const parts = String(text).split(/```/g);
 
   return (
     <div className="message-content">
@@ -434,14 +361,7 @@ function MessageContent({ text }) {
           const language = normalizeCodeLanguage(lines[0]?.trim() || "code");
           const code = lines.slice(1).join("\n").trim();
 
-          return (
-            <CodePreviewBlock
-              key={`code-${index}`}
-              language={language}
-              code={code}
-              blockId={`code-${index}`}
-            />
-          );
+          return <CodePreviewBlock key={`code-${index}`} language={language} code={code} blockId={`code-${index}`} />;
         }
 
         const lines = part.split("\n");
@@ -456,9 +376,7 @@ function MessageContent({ text }) {
             elements.push(
               <ol key={`ol-${index}-${elements.length}`}>
                 {listItems.map((item, i) => (
-                  <li key={`oli-${i}`}>
-                    {renderInlineFormat(item, `ol-${index}-${i}`)}
-                  </li>
+                  <li key={`oli-${i}`}>{renderInlineFormat(item, `ol-${index}-${i}`)}</li>
                 ))}
               </ol>
             );
@@ -468,9 +386,7 @@ function MessageContent({ text }) {
             elements.push(
               <ul key={`ul-${index}-${elements.length}`}>
                 {listItems.map((item, i) => (
-                  <li key={`uli-${i}`}>
-                    {renderInlineFormat(item, `ul-${index}-${i}`)}
-                  </li>
+                  <li key={`uli-${i}`}>{renderInlineFormat(item, `ul-${index}-${i}`)}</li>
                 ))}
               </ul>
             );
@@ -490,35 +406,27 @@ function MessageContent({ text }) {
 
           if (/^\d+\.\s+/.test(line)) {
             const itemText = line.replace(/^\d+\.\s+/, "");
-
             if (listType !== "ol") {
               flushList();
               listType = "ol";
             }
-
             listItems.push(itemText);
             return;
           }
 
           if (/^[-*]\s+/.test(line)) {
             const itemText = line.replace(/^[-*]\s+/, "");
-
             if (listType !== "ul") {
               flushList();
               listType = "ul";
             }
-
             listItems.push(itemText);
             return;
           }
 
           flushList();
 
-          elements.push(
-            <p key={`p-${index}-${lineIndex}`}>
-              {renderInlineFormat(line, `p-${index}-${lineIndex}`)}
-            </p>
-          );
+          elements.push(<p key={`p-${index}-${lineIndex}`}>{renderInlineFormat(line, `p-${index}-${lineIndex}`)}</p>);
         });
 
         flushList();
@@ -543,6 +451,7 @@ export default function Home() {
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
 
   const [sessions, setSessions] = useState([]);
+  const [historySearch, setHistorySearch] = useState("");
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [message, setMessage] = useState("");
   const [chats, setChats] = useState([]);
@@ -552,9 +461,7 @@ export default function Home() {
   const [chatImagePreviews, setChatImagePreviews] = useState([]);
   const [chatImageError, setChatImageError] = useState("");
   const [previewImageUrl, setPreviewImageUrl] = useState("");
-  const [selectedGroqModel, setSelectedGroqModel] = useState(
-    "llama-3.1-8b-instant"
-  );
+  const [selectedGroqModel, setSelectedGroqModel] = useState("llama-3.1-8b-instant");
 
   const [tempMails, setTempMails] = useState([]);
   const [activeTempMail, setActiveTempMail] = useState(null);
@@ -573,15 +480,21 @@ export default function Home() {
   const [imageHistoryLoading, setImageHistoryLoading] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
 
+  const filteredSessions = useMemo(() => {
+    const keyword = historySearch.trim().toLowerCase();
+
+    if (!keyword) return sessions;
+
+    return sessions.filter((session) => String(session?.title || "").toLowerCase().includes(keyword));
+  }, [sessions, historySearch]);
+
   useEffect(() => {
     async function initAuth() {
       try {
         const client = getSupabase();
 
         if (!client) {
-          setAuthError(
-            "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
-          );
+          setAuthError("Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare.");
           setAuthReady(true);
           return;
         }
@@ -596,17 +509,13 @@ export default function Home() {
 
         setUser(data?.user || null);
 
-        const { data: listener } = client.auth.onAuthStateChange(
-          (_event, session) => {
-            setUser(session?.user || null);
-          }
-        );
+        const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+          setUser(session?.user || null);
+        });
 
         setAuthReady(true);
 
-        return () => {
-          listener?.subscription?.unsubscribe();
-        };
+        return () => listener?.subscription?.unsubscribe();
       } catch (error) {
         console.error("Auth init error:", error);
         setAuthError("Terjadi error saat menyiapkan login Supabase.");
@@ -621,9 +530,7 @@ export default function Home() {
     });
 
     return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
+      if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
 
@@ -653,10 +560,7 @@ export default function Home() {
       const chatBox = document.querySelector(".chat-box");
 
       if (activeTool === "image" && panel) {
-        panel.scrollTo({
-          top: 0,
-          behavior: "smooth"
-        });
+        panel.scrollTo({ top: 0, behavior: "smooth" });
       }
 
       if (activeTool === "chat" && chatBox) {
@@ -667,18 +571,14 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (uploadedImagePreview) {
-        URL.revokeObjectURL(uploadedImagePreview);
-      }
+      if (uploadedImagePreview) URL.revokeObjectURL(uploadedImagePreview);
     };
   }, [uploadedImagePreview]);
 
   useEffect(() => {
     return () => {
       chatImagePreviews.forEach((item) => {
-        if (item?.url) {
-          URL.revokeObjectURL(item.url);
-        }
+        if (item?.url) URL.revokeObjectURL(item.url);
       });
     };
   }, [chatImagePreviews]);
@@ -686,19 +586,14 @@ export default function Home() {
   function makeVariationPrompt(prompt) {
     return `${prompt.trim()}
 
-Unique variation seed: ${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}
+Unique variation seed: ${Date.now()}-${Math.random().toString(36).slice(2)}
 
 Create a fresh variation. Keep the result close to the user's prompt, but do not repeat the exact same composition, pose, lighting, background, color placement, subject angle, or camera angle as previous outputs.`;
   }
 
   async function loadSessions(email) {
     try {
-      const res = await fetch(
-        `/api/chat?action=sessions&user_email=${encodeURIComponent(email)}`
-      );
-
+      const res = await fetch(`/api/chat?action=sessions&user_email=${encodeURIComponent(email)}`);
       const data = await res.json();
       setSessions(data.data || []);
     } catch {
@@ -714,9 +609,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
     try {
       const res = await fetch(
-        `/api/chat?action=messages&user_email=${encodeURIComponent(
-          user.email
-        )}&session_id=${encodeURIComponent(sessionId)}`
+        `/api/chat?action=messages&user_email=${encodeURIComponent(user.email)}&session_id=${encodeURIComponent(sessionId)}`
       );
 
       const data = await res.json();
@@ -742,6 +635,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   function newChat() {
     setActiveTool("chat");
     setToolMenuOpen(false);
+    setHistorySearch("");
     setActiveSessionId(null);
     setChats([]);
     setMessage("");
@@ -756,14 +650,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     try {
       await fetch("/api/chat", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          user_email: user.email,
-          title: title.trim()
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, user_email: user.email, title: title.trim() })
       });
 
       loadSessions(user.email);
@@ -773,20 +661,14 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   async function deleteSession(sessionId) {
-    const ok = confirm(
-      "Hapus history chat ini? File gambar di Supabase Storage juga ikut dihapus."
-    );
+    const ok = confirm("Hapus history chat ini? File gambar di Supabase Storage juga ikut dihapus.");
 
     if (!ok) return;
 
     try {
       const res = await fetch(
-        `/api/chat?session_id=${encodeURIComponent(
-          sessionId
-        )}&user_email=${encodeURIComponent(user.email)}`,
-        {
-          method: "DELETE"
-        }
+        `/api/chat?session_id=${encodeURIComponent(sessionId)}&user_email=${encodeURIComponent(user.email)}`,
+        { method: "DELETE" }
       );
 
       const data = await res.json();
@@ -796,9 +678,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         return;
       }
 
-      if (activeSessionId === sessionId) {
-        newChat();
-      }
+      if (activeSessionId === sessionId) newChat();
 
       loadSessions(user.email);
     } catch {
@@ -814,9 +694,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setChatImageError("");
 
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-
-    const currentCount = chatImageFiles.length;
-    const remainingSlots = CHAT_IMAGE_MAX_COUNT - currentCount;
+    const remainingSlots = CHAT_IMAGE_MAX_COUNT - chatImageFiles.length;
 
     if (remainingSlots <= 0) {
       setChatImageError(`Maksimal ${CHAT_IMAGE_MAX_COUNT} gambar sekali kirim.`);
@@ -842,10 +720,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       }
 
       validFiles.push(file);
-      validPreviews.push({
-        url: URL.createObjectURL(file),
-        name: file.name
-      });
+      validPreviews.push({ url: URL.createObjectURL(file), name: file.name });
     }
 
     setChatImageFiles((prev) => [...prev, ...validFiles]);
@@ -857,9 +732,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   function clearChatImage(index = null) {
     if (index === null) {
       chatImagePreviews.forEach((item) => {
-        if (item?.url) {
-          URL.revokeObjectURL(item.url);
-        }
+        if (item?.url) URL.revokeObjectURL(item.url);
       });
 
       setChatImageFiles([]);
@@ -870,9 +743,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
     const target = chatImagePreviews[index];
 
-    if (target?.url) {
-      URL.revokeObjectURL(target.url);
-    }
+    if (target?.url) URL.revokeObjectURL(target.url);
 
     setChatImageFiles((prev) => prev.filter((_, i) => i !== index));
     setChatImagePreviews((prev) => prev.filter((_, i) => i !== index));
@@ -883,18 +754,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setPreviewImageUrl("");
   }
 
-  async function downloadImageFromUrl(
-    url,
-    filename = `properside-ai-image-${Date.now()}.png`
-  ) {
+  async function downloadImageFromUrl(url, filename = `properside-ai-image-${Date.now()}.png`) {
     if (!url) return;
 
     try {
       const response = await fetch(url);
 
-      if (!response.ok) {
-        throw new Error("Gagal mengambil file gambar.");
-      }
+      if (!response.ok) throw new Error("Gagal mengambil file gambar.");
 
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -904,12 +770,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       link.download = filename;
       document.body.appendChild(link);
       link.click();
-
       document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
     } catch {
       const link = document.createElement("a");
-
       link.href = url;
       link.download = filename;
       link.target = "_blank";
@@ -935,10 +799,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       ...prev,
       {
         role: "user",
-        text:
-          selectedImages.length > 0
-            ? `${userText}\n\n[User mengirim ${selectedImages.length} gambar untuk dianalisis]`
-            : userText,
+        text: selectedImages.length > 0 ? `${userText}\n\n[User mengirim ${selectedImages.length} gambar untuk dianalisis]` : userText,
         imageUrl: localImageUrls[0] || "",
         imageUrls: localImageUrls
       }
@@ -953,24 +814,15 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         formData.append("user_email", user.email);
         formData.append("selected_model", selectedGroqModel);
 
-        if (activeSessionId) {
-          formData.append("session_id", activeSessionId);
-        }
+        if (activeSessionId) formData.append("session_id", activeSessionId);
 
-        selectedImages.forEach((file) => {
-          formData.append("images", file);
-        });
+        selectedImages.forEach((file) => formData.append("images", file));
 
-        res = await fetch("/api/chat", {
-          method: "POST",
-          body: formData
-        });
+        res = await fetch("/api/chat", { method: "POST", body: formData });
       } else {
         res = await fetch("/api/chat", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: userText,
             user_email: user.email,
@@ -982,9 +834,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
       const data = await res.json();
 
-      if (data.session_id && !activeSessionId) {
-        setActiveSessionId(data.session_id);
-      }
+      if (data.session_id && !activeSessionId) setActiveSessionId(data.session_id);
 
       setChats((prev) => {
         const nextChats = [...prev];
@@ -992,46 +842,26 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         if (data?.image_urls?.length) {
           for (let i = nextChats.length - 1; i >= 0; i -= 1) {
             if (nextChats[i]?.role === "user" && nextChats[i]?.imageUrls?.length) {
-              nextChats[i] = {
-                ...nextChats[i],
-                imageUrl: data.image_urls[0] || "",
-                imageUrls: data.image_urls
-              };
+              nextChats[i] = { ...nextChats[i], imageUrl: data.image_urls[0] || "", imageUrls: data.image_urls };
               break;
             }
           }
         } else if (data?.image_url) {
           for (let i = nextChats.length - 1; i >= 0; i -= 1) {
             if (nextChats[i]?.role === "user" && nextChats[i]?.imageUrl) {
-              nextChats[i] = {
-                ...nextChats[i],
-                imageUrl: data.image_url,
-                imageUrls: [data.image_url]
-              };
+              nextChats[i] = { ...nextChats[i], imageUrl: data.image_url, imageUrls: [data.image_url] };
               break;
             }
           }
         }
 
-        return [
-          ...nextChats,
-          {
-            role: "ai",
-            text: data.reply || "Tidak ada jawaban."
-          }
-        ];
+        return [...nextChats, { role: "ai", text: data.reply || "Tidak ada jawaban." }];
       });
 
       clearChatImage();
       loadSessions(user.email);
     } catch {
-      setChats((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: "Gagal menghubungi API."
-        }
-      ]);
+      setChats((prev) => [...prev, { role: "ai", text: "Gagal menghubungi API." }]);
     } finally {
       setLoading(false);
     }
@@ -1039,18 +869,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
   async function loadTempMails(email) {
     try {
-      const res = await fetch(
-        `/api/tempmail?action=list&user_email=${encodeURIComponent(email)}`
-      );
-
+      const res = await fetch(`/api/tempmail?action=list&user_email=${encodeURIComponent(email)}`);
       const data = await res.json();
       const mails = data?.data || [];
 
       setTempMails(mails);
 
-      if (mails.length > 0 && !activeTempMail) {
-        setActiveTempMail(mails[0]);
-      }
+      if (mails.length > 0 && !activeTempMail) setActiveTempMail(mails[0]);
     } catch {
       console.log("Gagal load tempmail.");
     }
@@ -1064,12 +889,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
       const res = await fetch("/api/tempmail", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          user_email: user.email
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_email: user.email })
       });
 
       const data = await res.json();
@@ -1096,9 +917,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       setActiveTempMail(mail);
 
       const res = await fetch(
-        `/api/tempmail?action=check&user_email=${encodeURIComponent(
-          user.email
-        )}&token=${encodeURIComponent(mail.email_token)}`
+        `/api/tempmail?action=check&user_email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(mail.email_token)}`
       );
 
       const data = await res.json();
@@ -1132,9 +951,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
   async function loginGoogle() {
     if (!supabase) {
-      alert(
-        "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
-      );
+      alert("Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare.");
       return;
     }
 
@@ -1142,10 +959,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       provider: "google",
       options: {
         redirectTo: window.location.origin,
-        queryParams: {
-          access_type: "offline",
-          prompt: "select_account"
-        }
+        queryParams: { access_type: "offline", prompt: "select_account" }
       }
     });
   }
@@ -1158,6 +972,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setUser(null);
     setChats([]);
     setSessions([]);
+    setHistorySearch("");
     setActiveSessionId(null);
     setTempMails([]);
     setActiveTempMail(null);
@@ -1180,9 +995,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       return;
     }
 
-    if (uploadedImagePreview) {
-      URL.revokeObjectURL(uploadedImagePreview);
-    }
+    if (uploadedImagePreview) URL.revokeObjectURL(uploadedImagePreview);
 
     const previewUrl = URL.createObjectURL(file);
 
@@ -1197,10 +1010,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   }
 
   function clearUploadedImage() {
-    if (uploadedImagePreview) {
-      URL.revokeObjectURL(uploadedImagePreview);
-    }
-
+    if (uploadedImagePreview) URL.revokeObjectURL(uploadedImagePreview);
     setUploadedImageFile(null);
     setUploadedImagePreview("");
   }
@@ -1230,22 +1040,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         formData.append("provider", "replicate");
         formData.append("image", uploadedImageFile);
 
-        res = await fetch("/api/image-edit", {
-          method: "POST",
-          body: formData
-        });
-
+        res = await fetch("/api/image-edit", { method: "POST", body: formData });
         data = await res.json();
       } else {
         res = await fetch("/api/image", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            prompt: makeVariationPrompt(imagePrompt),
-            provider: imageProvider
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: makeVariationPrompt(imagePrompt), provider: imageProvider })
         });
 
         data = await res.json();
@@ -1261,16 +1062,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         text: data?.text || "",
         mimeType: data?.mimeType || "image/png",
         base64: data?.image || "",
-        dataUrl: `data:${data?.mimeType || "image/png"};base64,${
-          data?.image || ""
-        }`,
+        dataUrl: `data:${data?.mimeType || "image/png"};base64,${data?.image || ""}`,
         provider: data?.provider || imageProvider,
         edited: !!uploadedImageFile || !!data?.edited
       });
     } catch (error) {
-      setImageError(
-        error?.message || "Terjadi error saat generate / edit gambar."
-      );
+      setImageError(error?.message || "Terjadi error saat generate / edit gambar.");
     } finally {
       setImageLoading(false);
     }
@@ -1279,13 +1076,11 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   function downloadGeneratedImage() {
     if (!generatedImage?.dataUrl) return;
 
-    const ext =
-      generatedImage?.mimeType?.includes("jpeg") ||
-      generatedImage?.mimeType?.includes("jpg")
-        ? "jpg"
-        : generatedImage?.mimeType?.includes("webp")
-        ? "webp"
-        : "png";
+    const ext = generatedImage?.mimeType?.includes("jpeg") || generatedImage?.mimeType?.includes("jpg")
+      ? "jpg"
+      : generatedImage?.mimeType?.includes("webp")
+      ? "webp"
+      : "png";
 
     const link = document.createElement("a");
     link.href = generatedImage.dataUrl;
@@ -1301,15 +1096,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     try {
       setImageHistoryLoading(true);
 
-      const res = await fetch(
-        `/api/image-history?user_email=${encodeURIComponent(email)}`
-      );
-
+      const res = await fetch(`/api/image-history?user_email=${encodeURIComponent(email)}`);
       const data = await res.json();
 
-      if (data?.success) {
-        setImageHistory(data?.data || []);
-      }
+      if (data?.success) setImageHistory(data?.data || []);
     } catch {
       console.log("Gagal load image history.");
     } finally {
@@ -1326,9 +1116,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
       const res = await fetch("/api/image-history", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_email: user.email,
           prompt: generatedImage.prompt || imagePrompt,
@@ -1357,21 +1145,14 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
   async function deleteImageHistoryItem(item) {
     if (!item?.id || !user?.email) return;
 
-    const ok = confirm(
-      "Hapus gambar ini dari history? File di Supabase Storage juga ikut dihapus."
-    );
+    const ok = confirm("Hapus gambar ini dari history? File di Supabase Storage juga ikut dihapus.");
 
     if (!ok) return;
 
     try {
-      const res = await fetch(
-        `/api/image-history?id=${encodeURIComponent(
-          item.id
-        )}&user_email=${encodeURIComponent(user.email)}`,
-        {
-          method: "DELETE"
-        }
-      );
+      const res = await fetch(`/api/image-history?id=${encodeURIComponent(item.id)}&user_email=${encodeURIComponent(user.email)}`, {
+        method: "DELETE"
+      });
 
       const data = await res.json();
 
@@ -1388,7 +1169,6 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
   function useHistoryImage(item) {
     if (!item?.image_url) return;
-
     setPreviewImageUrl(item.image_url);
   }
 
@@ -1402,14 +1182,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
   function isLimitError(text = "") {
     const lower = text.toLowerCase();
-
-    return (
-      lower.includes("quota") ||
-      lower.includes("billing") ||
-      lower.includes("limit") ||
-      lower.includes("credit") ||
-      lower.includes("payment")
-    );
+    return lower.includes("quota") || lower.includes("billing") || lower.includes("limit") || lower.includes("credit") || lower.includes("payment");
   }
 
   function renderChatHistory() {
@@ -1421,23 +1194,66 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
         <h3>History Chat</h3>
 
+        <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+          <input
+            value={historySearch}
+            onChange={(e) => setHistorySearch(e.target.value)}
+            placeholder="Cari history chat..."
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              border: "1px solid #2f2f35",
+              background: "#0f0f11",
+              color: "#fff",
+              padding: "11px 12px",
+              outline: "none",
+              fontSize: 14,
+              boxSizing: "border-box"
+            }}
+          />
+
+          {historySearch.trim() && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+                alignItems: "center",
+                color: "#a1a1aa",
+                fontSize: 12
+              }}
+            >
+              <span>
+                Ditemukan {filteredSessions.length} dari {sessions.length} chat
+              </span>
+
+              <button
+                onClick={() => setHistorySearch("")}
+                style={{
+                  width: "auto",
+                  padding: "6px 10px",
+                  borderRadius: 10,
+                  background: "#27272a",
+                  border: "1px solid #3f3f46",
+                  fontSize: 12
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="history-list">
-          {sessions.length === 0 && (
-            <p className="empty-history">Belum ada history.</p>
+          {sessions.length === 0 && <p className="empty-history">Belum ada history.</p>}
+
+          {sessions.length > 0 && filteredSessions.length === 0 && (
+            <p className="empty-history">Tidak ada history yang cocok dengan pencarian.</p>
           )}
 
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className={
-                activeSessionId === session.id
-                  ? "history-item active"
-                  : "history-item"
-              }
-            >
-              <button onClick={() => loadMessages(session.id)}>
-                {session.title}
-              </button>
+          {filteredSessions.map((session) => (
+            <div key={session.id} className={activeSessionId === session.id ? "history-item active" : "history-item"}>
+              <button onClick={() => loadMessages(session.id)}>{session.title}</button>
 
               <div className="history-actions">
                 <span onClick={() => renameSession(session.id)}>✏️</span>
@@ -1468,23 +1284,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
           lineHeight: 1.6
         }}
       >
-        <strong style={{ display: "block", marginBottom: 6 }}>
-          {limit ? "Limit Replicate" : "Terjadi Error"}
-        </strong>
+        <strong style={{ display: "block", marginBottom: 6 }}>{limit ? "Limit Replicate" : "Terjadi Error"}</strong>
 
         <div>{imageError}</div>
 
         {limit && (
-          <small
-            style={{
-              display: "block",
-              marginTop: 10,
-              color: "#fecaca"
-            }}
-          >
-            Fitur edit gambar memakai Replicate dan bisa habis kuota. Web tidak
-            rusak. Kamu masih bisa hapus upload gambar lalu generate gambar
-            biasa memakai Hugging Face.
+          <small style={{ display: "block", marginTop: 10, color: "#fecaca" }}>
+            Fitur edit gambar memakai Replicate dan bisa habis kuota. Web tidak rusak. Kamu masih bisa hapus upload gambar lalu generate gambar biasa memakai Hugging Face.
           </small>
         )}
       </div>
@@ -1496,77 +1302,32 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
     const quickPrompts = isEditMode
       ? [
-          {
-            label: "Ganti Background",
-            text: "Ganti background menjadi laut tropis yang cerah, pertahankan objek utama tetap natural"
-          },
-          {
-            label: "Style Anime",
-            text: "Ubah gambar ini menjadi style anime cinematic, warna cerah, detail tinggi"
-          },
-          {
-            label: "Cyberpunk",
-            text: "Ubah suasana gambar menjadi cyberpunk malam hari dengan lampu neon biru dan ungu"
-          },
-          {
-            label: "Lebih HD",
-            text: "Buat gambar ini terlihat lebih tajam, lebih detail, lighting lebih bagus, tetap natural"
-          }
+          { label: "Ganti Background", text: "Ganti background menjadi laut tropis yang cerah, pertahankan objek utama tetap natural" },
+          { label: "Style Anime", text: "Ubah gambar ini menjadi style anime cinematic, warna cerah, detail tinggi" },
+          { label: "Cyberpunk", text: "Ubah suasana gambar menjadi cyberpunk malam hari dengan lampu neon biru dan ungu" },
+          { label: "Lebih HD", text: "Buat gambar ini terlihat lebih tajam, lebih detail, lighting lebih bagus, tetap natural" }
         ]
       : [
-          {
-            label: "Cyberpunk Car",
-            text: "Buat gambar mobil sport cyberpunk di jalan kota malam, neon lights, cinematic, ultra detail"
-          },
-          {
-            label: "Mascot Logo",
-            text: "Buat ilustrasi logo maskot kucing lucu memakai hoodie biru, gaya modern flat vector, background putih"
-          },
-          {
-            label: "Anime Poster",
-            text: "Buat poster anime fantasy seorang pendekar wanita memegang pedang bercahaya di hutan malam"
-          },
-          {
-            label: "Realistic Cat",
-            text: "Buat gambar kucing lucu realistis, mata besar, lighting studio, ultra detail"
-          }
+          { label: "Cyberpunk Car", text: "Buat gambar mobil sport cyberpunk di jalan kota malam, neon lights, cinematic, ultra detail" },
+          { label: "Mascot Logo", text: "Buat ilustrasi logo maskot kucing lucu memakai hoodie biru, gaya modern flat vector, background putih" },
+          { label: "Anime Poster", text: "Buat poster anime fantasy seorang pendekar wanita memegang pedang bercahaya di hutan malam" },
+          { label: "Realistic Cat", text: "Buat gambar kucing lucu realistis, mata besar, lighting studio, ultra detail" }
         ];
 
     return (
       <section className="placeholder-panel">
-        <div
-          className="placeholder-card"
-          style={{
-            maxWidth: 980,
-            width: "100%",
-            textAlign: "left"
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap"
-            }}
-          >
+        <div className="placeholder-card" style={{ maxWidth: 980, width: "100%", textAlign: "left" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div className="placeholder-icon">🖼️</div>
-
               <h2 style={{ marginBottom: 8 }}>AI Image Studio</h2>
-
-              <p style={{ margin: 0 }}>
-                Buat gambar dari teks atau upload gambar lalu edit memakai AI.
-              </p>
+              <p style={{ margin: 0 }}>Buat gambar dari teks atau upload gambar lalu edit memakai AI.</p>
             </div>
 
             <div
               style={{
                 border: "1px solid #2f2f35",
-                background: isEditMode
-                  ? "rgba(37, 99, 235, 0.18)"
-                  : "rgba(24, 24, 27, 0.95)",
+                background: isEditMode ? "rgba(37, 99, 235, 0.18)" : "rgba(24, 24, 27, 0.95)",
                 color: "#fff",
                 borderRadius: 999,
                 padding: "10px 14px",
@@ -1577,108 +1338,39 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: 20,
-              display: "grid",
-              gap: 16
-            }}
-          >
-            <div
-              style={{
-                background: "#101014",
-                border: "1px solid #27272a",
-                borderRadius: 22,
-                padding: 16,
-                display: "grid",
-                gap: 12
-              }}
-            >
+          <div style={{ marginTop: 20, display: "grid", gap: 16 }}>
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 12 }}>
               <strong>Pilih Mode AI</strong>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap"
-                }}
-              >
-                <button
-                  onClick={() => {
-                    setImageProvider("huggingface");
-                    setImageError("");
-                  }}
-                  style={{
-                    background:
-                      imageProvider === "huggingface" ? "#3d63dd" : "#18181b",
-                    border:
-                      imageProvider === "huggingface"
-                        ? "1px solid #4e74f0"
-                        : "1px solid #2f2f35",
-                    color: "#fff",
-                    borderRadius: 999,
-                    padding: "10px 16px",
-                    cursor: "pointer",
-                    width: "auto"
-                  }}
-                >
-                  Hugging Face Generate
-                </button>
-
-                <button
-                  onClick={() => {
-                    setImageProvider("auto");
-                    setImageError("");
-                  }}
-                  style={{
-                    background:
-                      imageProvider === "auto" ? "#3d63dd" : "#18181b",
-                    border:
-                      imageProvider === "auto"
-                        ? "1px solid #4e74f0"
-                        : "1px solid #2f2f35",
-                    color: "#fff",
-                    borderRadius: 999,
-                    padding: "10px 16px",
-                    cursor: "pointer",
-                    width: "auto"
-                  }}
-                >
-                  Auto
-                </button>
-
-                <button
-                  onClick={() => {
-                    setImageProvider("gemini");
-                    setImageError("");
-                  }}
-                  style={{
-                    background:
-                      imageProvider === "gemini" ? "#3d63dd" : "#18181b",
-                    border:
-                      imageProvider === "gemini"
-                        ? "1px solid #4e74f0"
-                        : "1px solid #2f2f35",
-                    color: "#fff",
-                    borderRadius: 999,
-                    padding: "10px 16px",
-                    cursor: "pointer",
-                    width: "auto"
-                  }}
-                >
-                  Gemini
-                </button>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {[
+                  { value: "huggingface", label: "Hugging Face Generate" },
+                  { value: "auto", label: "Auto" },
+                  { value: "gemini", label: "Gemini" }
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => {
+                      setImageProvider(item.value);
+                      setImageError("");
+                    }}
+                    style={{
+                      background: imageProvider === item.value ? "#3d63dd" : "#18181b",
+                      border: imageProvider === item.value ? "1px solid #4e74f0" : "1px solid #2f2f35",
+                      color: "#fff",
+                      borderRadius: 999,
+                      padding: "10px 16px",
+                      cursor: "pointer",
+                      width: "auto"
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
 
-              <small
-                style={{
-                  color: "#a1a1aa",
-                  lineHeight: 1.6
-                }}
-              >
-                Text-to-image memakai provider yang kamu pilih. Kalau kamu upload
-                gambar, tombol edit akan otomatis memakai Replicate Flux Kontext
-                Pro.
+              <small style={{ color: "#a1a1aa", lineHeight: 1.6 }}>
+                Text-to-image memakai provider yang kamu pilih. Kalau kamu upload gambar, tombol edit akan otomatis memakai Replicate Flux Kontext Pro.
               </small>
 
               <small
@@ -1692,10 +1384,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   display: "block"
                 }}
               >
-                Catatan: fitur edit gambar memakai Replicate dan bisa terkena
-                limit/free quota. Kalau muncul pesan quota atau billing, berarti
-                jatah Replicate sedang habis. Generate gambar biasa tetap bisa
-                pakai Hugging Face.
+                Catatan: fitur edit gambar memakai Replicate dan bisa terkena limit/free quota. Kalau muncul pesan quota atau billing, berarti jatah Replicate sedang habis.
+                Generate gambar biasa tetap bisa pakai Hugging Face.
               </small>
 
               {!isEditMode && (
@@ -1710,43 +1400,17 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     display: "block"
                   }}
                 >
-                  Mode generate sudah diberi variasi otomatis. Jadi walaupun
-                  prompt sama, hasil gambar berikutnya akan dibuat berbeda tapi
-                  tetap mengikuti prompt utama.
+                  Mode generate sudah diberi variasi otomatis. Jadi walaupun prompt sama, hasil gambar berikutnya akan dibuat berbeda tapi tetap mengikuti prompt utama.
                 </small>
               )}
             </div>
 
-            <div
-              style={{
-                background: "#101014",
-                border: "1px solid #27272a",
-                borderRadius: 22,
-                padding: 16,
-                display: "grid",
-                gap: 12
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  alignItems: "center"
-                }}
-              >
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <strong>Upload Gambar untuk Edit</strong>
 
                 {uploadedImagePreview && (
-                  <button
-                    onClick={clearUploadedImage}
-                    style={{
-                      width: "auto",
-                      background: "#18181b",
-                      border: "1px solid #2f2f35"
-                    }}
-                  >
+                  <button onClick={clearUploadedImage} style={{ width: "auto", background: "#18181b", border: "1px solid #2f2f35" }}>
                     Hapus Upload
                   </button>
                 )}
@@ -1768,15 +1432,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               />
 
               {uploadedImagePreview ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10
-                  }}
-                >
-                  <small style={{ color: "#a1a1aa" }}>
-                    Preview gambar asli:
-                  </small>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <small style={{ color: "#a1a1aa" }}>Preview gambar asli:</small>
 
                   <img
                     src={uploadedImagePreview}
@@ -1803,25 +1460,13 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     lineHeight: 1.6
                   }}
                 >
-                  Belum ada gambar upload. Kalau kosong, AI akan membuat gambar
-                  baru dari teks.
+                  Belum ada gambar upload. Kalau kosong, AI akan membuat gambar baru dari teks.
                 </div>
               )}
             </div>
 
-            <div
-              style={{
-                background: "#101014",
-                border: "1px solid #27272a",
-                borderRadius: 22,
-                padding: 16,
-                display: "grid",
-                gap: 12
-              }}
-            >
-              <strong>
-                {isEditMode ? "Prompt Edit Gambar" : "Prompt Generate Gambar"}
-              </strong>
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 12 }}>
+              <strong>{isEditMode ? "Prompt Edit Gambar" : "Prompt Generate Gambar"}</strong>
 
               <textarea
                 value={imagePrompt}
@@ -1846,13 +1491,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 }}
               />
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap"
-                }}
-              >
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {quickPrompts.map((item) => (
                   <button
                     key={item.label}
@@ -1876,12 +1515,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </div>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gap: 10
-              }}
-            >
+            <div style={{ display: "grid", gap: 10 }}>
               <button onClick={generateImage} disabled={imageLoading}>
                 {imageLoading
                   ? isEditMode
@@ -1892,40 +1526,16 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   : `Generate Image (${getProviderLabel(imageProvider)})`}
               </button>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap"
-                }}
-              >
-                {generatedImage?.dataUrl && (
-                  <button onClick={downloadGeneratedImage}>
-                    Download Image
-                  </button>
-                )}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {generatedImage?.dataUrl && <button onClick={downloadGeneratedImage}>Download Image</button>}
 
                 {generatedImage?.base64 && (
-                  <button
-                    onClick={saveGeneratedImage}
-                    disabled={imageSaving}
-                    style={{
-                      width: "auto",
-                      background: "#16a34a"
-                    }}
-                  >
+                  <button onClick={saveGeneratedImage} disabled={imageSaving} style={{ width: "auto", background: "#16a34a" }}>
                     {imageSaving ? "Saving..." : "Save to History"}
                   </button>
                 )}
 
-                <button
-                  onClick={resetImageTool}
-                  style={{
-                    background: "#18181b",
-                    border: "1px solid #2f2f35",
-                    width: "auto"
-                  }}
-                >
+                <button onClick={resetImageTool} style={{ background: "#18181b", border: "1px solid #2f2f35", width: "auto" }}>
                   Reset
                 </button>
               </div>
@@ -1951,66 +1561,22 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             {renderImageErrorBox()}
 
             {generatedImage?.dataUrl && (
-              <div
-                style={{
-                  marginTop: 4,
-                  background: "#101014",
-                  border: "1px solid #27272a",
-                  borderRadius: 22,
-                  padding: 16,
-                  display: "grid",
-                  gap: 14
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    alignItems: "center",
-                    flexWrap: "wrap"
-                  }}
-                >
+              <div style={{ marginTop: 4, background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <div>
                     <strong>Hasil AI</strong>
-
-                    <p
-                      style={{
-                        margin: "6px 0 0",
-                        color: "#a1a1aa"
-                      }}
-                    >
-                      {generatedImage.edited
-                        ? "Before / after hasil edit gambar"
-                        : "Hasil generate variasi gambar dari prompt"}
+                    <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>
+                      {generatedImage.edited ? "Before / after hasil edit gambar" : "Hasil generate variasi gambar dari prompt"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap"
-                    }}
-                  >
-                    <button
-                      onClick={downloadGeneratedImage}
-                      style={{
-                        width: "auto"
-                      }}
-                    >
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={downloadGeneratedImage} style={{ width: "auto" }}>
                       Download
                     </button>
 
                     {generatedImage?.base64 && (
-                      <button
-                        onClick={saveGeneratedImage}
-                        disabled={imageSaving}
-                        style={{
-                          width: "auto",
-                          background: "#16a34a"
-                        }}
-                      >
+                      <button onClick={saveGeneratedImage} disabled={imageSaving} style={{ width: "auto", background: "#16a34a" }}>
                         {imageSaving ? "Saving..." : "Save"}
                       </button>
                     )}
@@ -2018,57 +1584,22 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 </div>
 
                 {isEditMode && uploadedImagePreview ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(220px, 1fr))",
-                      gap: 14
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8
-                      }}
-                    >
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+                    <div style={{ display: "grid", gap: 8 }}>
                       <small style={{ color: "#a1a1aa" }}>Before</small>
-
                       <img
                         src={uploadedImagePreview}
                         alt="Before edit"
-                        style={{
-                          width: "100%",
-                          maxHeight: 520,
-                          objectFit: "contain",
-                          borderRadius: 18,
-                          display: "block",
-                          background: "#000",
-                          border: "1px solid #27272a"
-                        }}
+                        style={{ width: "100%", maxHeight: 520, objectFit: "contain", borderRadius: 18, display: "block", background: "#000", border: "1px solid #27272a" }}
                       />
                     </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8
-                      }}
-                    >
+                    <div style={{ display: "grid", gap: 8 }}>
                       <small style={{ color: "#a1a1aa" }}>After</small>
-
                       <img
                         src={generatedImage.dataUrl}
                         alt={generatedImage.prompt}
-                        style={{
-                          width: "100%",
-                          maxHeight: 520,
-                          objectFit: "contain",
-                          borderRadius: 18,
-                          display: "block",
-                          background: "#000",
-                          border: "1px solid #27272a"
-                        }}
+                        style={{ width: "100%", maxHeight: 520, objectFit: "contain", borderRadius: 18, display: "block", background: "#000", border: "1px solid #27272a" }}
                       />
                     </div>
                   </div>
@@ -2076,44 +1607,19 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   <img
                     src={generatedImage.dataUrl}
                     alt={generatedImage.prompt}
-                    style={{
-                      width: "100%",
-                      maxHeight: 720,
-                      objectFit: "contain",
-                      borderRadius: 18,
-                      display: "block",
-                      background: "#000",
-                      border: "1px solid #27272a"
-                    }}
+                    style={{ width: "100%", maxHeight: 720, objectFit: "contain", borderRadius: 18, display: "block", background: "#000", border: "1px solid #27272a" }}
                   />
                 )}
 
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                    background: "#0f0f11",
-                    border: "1px solid #27272a",
-                    borderRadius: 18,
-                    padding: 14
-                  }}
-                >
+                <div style={{ display: "grid", gap: 10, background: "#0f0f11", border: "1px solid #27272a", borderRadius: 18, padding: 14 }}>
                   <div>
                     <strong>Provider:</strong>
-                    <p style={{ marginTop: 6 }}>
-                      {generatedImage.edited
-                        ? "Replicate / Flux Kontext Pro"
-                        : getProviderLabel(generatedImage.provider)}
-                    </p>
+                    <p style={{ marginTop: 6 }}>{generatedImage.edited ? "Replicate / Flux Kontext Pro" : getProviderLabel(generatedImage.provider)}</p>
                   </div>
 
                   <div>
                     <strong>Tipe:</strong>
-                    <p style={{ marginTop: 6 }}>
-                      {generatedImage.edited
-                        ? "Hasil edit gambar"
-                        : "Hasil generate variasi gambar"}
-                    </p>
+                    <p style={{ marginTop: 6 }}>{generatedImage.edited ? "Hasil edit gambar" : "Hasil generate variasi gambar"}</p>
                   </div>
 
                   <div>
@@ -2131,160 +1637,54 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </div>
             )}
 
-            <div
-              style={{
-                background: "#101014",
-                border: "1px solid #27272a",
-                borderRadius: 22,
-                padding: 16,
-                display: "grid",
-                gap: 14
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  alignItems: "center",
-                  flexWrap: "wrap"
-                }}
-              >
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <div>
                   <strong>History AI Image</strong>
-
-                  <p
-                    style={{
-                      margin: "6px 0 0",
-                      color: "#a1a1aa"
-                    }}
-                  >
-                    Gambar yang kamu simpan akan muncul di sini.
-                  </p>
+                  <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>Gambar yang kamu simpan akan muncul di sini.</p>
                 </div>
 
-                <button
-                  onClick={() => loadImageHistory(user.email)}
-                  disabled={imageHistoryLoading}
-                  style={{
-                    width: "auto",
-                    background: "#18181b",
-                    border: "1px solid #2f2f35"
-                  }}
-                >
+                <button onClick={() => loadImageHistory(user.email)} disabled={imageHistoryLoading} style={{ width: "auto", background: "#18181b", border: "1px solid #2f2f35" }}>
                   {imageHistoryLoading ? "Loading..." : "Refresh"}
                 </button>
               </div>
 
               {imageHistory.length === 0 ? (
-                <div
-                  style={{
-                    border: "1px dashed #3f3f46",
-                    borderRadius: 18,
-                    padding: 18,
-                    color: "#a1a1aa",
-                    textAlign: "center",
-                    lineHeight: 1.6
-                  }}
-                >
-                  Belum ada history gambar. Generate/edit gambar lalu klik Save
-                  to History.
+                <div style={{ border: "1px dashed #3f3f46", borderRadius: 18, padding: 18, color: "#a1a1aa", textAlign: "center", lineHeight: 1.6 }}>
+                  Belum ada history gambar. Generate/edit gambar lalu klik Save to History.
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: 12
-                  }}
-                >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
                   {imageHistory.map((item) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        background: "#0f0f11",
-                        border: "1px solid #27272a",
-                        borderRadius: 18,
-                        padding: 10,
-                        display: "grid",
-                        gap: 8
-                      }}
-                    >
+                    <div key={item.id} style={{ background: "#0f0f11", border: "1px solid #27272a", borderRadius: 18, padding: 10, display: "grid", gap: 8 }}>
                       <img
                         src={item.image_url}
                         alt={item.prompt || "AI image history"}
                         onClick={() => useHistoryImage(item)}
-                        style={{
-                          width: "100%",
-                          aspectRatio: "1 / 1",
-                          objectFit: "cover",
-                          borderRadius: 14,
-                          cursor: "zoom-in",
-                          background: "#000"
-                        }}
+                        style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 14, cursor: "zoom-in", background: "#000" }}
                       />
 
-                      <small
-                        style={{
-                          color: "#a1a1aa",
-                          lineHeight: 1.4,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden"
-                        }}
-                      >
+                      <small style={{ color: "#a1a1aa", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                         {item.prompt || "Tanpa prompt"}
                       </small>
 
                       <small style={{ color: "#71717a" }}>
-                        {item.image_type === "edit" ? "Edit" : "Generate"} ·{" "}
-                        {item.provider || "-"}
+                        {item.image_type === "edit" ? "Edit" : "Generate"} · {item.provider || "-"}
                       </small>
 
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr auto",
-                          gap: 8
-                        }}
-                      >
-                        <button
-                          onClick={() => useHistoryImage(item)}
-                          style={{
-                            fontSize: 13,
-                            padding: "8px 10px"
-                          }}
-                        >
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
+                        <button onClick={() => useHistoryImage(item)} style={{ fontSize: 13, padding: "8px 10px" }}>
                           Preview
                         </button>
 
                         <button
-                          onClick={() =>
-                            downloadImageFromUrl(
-                              item.image_url,
-                              `properside-ai-history-${item.id || Date.now()}.png`
-                            )
-                          }
-                          style={{
-                            fontSize: 13,
-                            padding: "8px 10px",
-                            background: "#16a34a"
-                          }}
+                          onClick={() => downloadImageFromUrl(item.image_url, `properside-ai-history-${item.id || Date.now()}.png`)}
+                          style={{ fontSize: 13, padding: "8px 10px", background: "#16a34a" }}
                         >
                           Download
                         </button>
 
-                        <button
-                          onClick={() => deleteImageHistoryItem(item)}
-                          style={{
-                            width: "auto",
-                            fontSize: 13,
-                            padding: "8px 10px",
-                            background: "#7f1d1d"
-                          }}
-                        >
+                        <button onClick={() => deleteImageHistoryItem(item)} style={{ width: "auto", fontSize: 13, padding: "8px 10px", background: "#7f1d1d" }}>
                           🗑️
                         </button>
                       </div>
@@ -2308,26 +1708,11 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
             <h2>Selamat Datang di Properside AI</h2>
 
-            <p>
-              Pilih tool di menu atas untuk mulai menggunakan AI Chat, AI Image,
-              Tempmail, dan fitur lainnya.
-            </p>
+            <p>Pilih tool di menu atas untuk mulai menggunakan AI Chat, AI Image, Tempmail, dan fitur lainnya.</p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                justifyContent: "center",
-                flexWrap: "wrap"
-              }}
-            >
-              <button onClick={() => setActiveTool("chat")}>
-                Mulai Chat AI
-              </button>
-
-              <button onClick={() => setActiveTool("image")}>
-                Buka AI Image
-              </button>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
+              <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
             </div>
           </div>
         </section>
@@ -2343,45 +1728,23 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             {chats.length === 0 && (
               <div className="empty-chat">
                 <h2>Apa yang ingin kamu buat hari ini?</h2>
-                <p>
-                  Tulis pesan, paste kode, atau upload sampai 5 screenshot.
-                  Maks 4MB per gambar.
-                </p>
+                <p>Tulis pesan, paste kode, atau upload sampai 5 screenshot. Maks 4MB per gambar.</p>
               </div>
             )}
 
             {chats.map((chat, index) => (
-              <div
-                key={index}
-                className={
-                  chat.role === "user"
-                    ? "message user-message"
-                    : "message ai-message"
-                }
-              >
+              <div key={index} className={chat.role === "user" ? "message user-message" : "message ai-message"}>
                 {(chat.imageUrls?.length > 0 || chat.imageUrl) && (
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns:
-                        (chat.imageUrls?.length
-                          ? chat.imageUrls
-                          : [chat.imageUrl]
-                        ).length > 1
-                          ? "repeat(auto-fit, minmax(120px, 1fr))"
-                          : "1fr",
+                      gridTemplateColumns: (chat.imageUrls?.length ? chat.imageUrls : [chat.imageUrl]).length > 1 ? "repeat(auto-fit, minmax(120px, 1fr))" : "1fr",
                       gap: 8,
                       marginBottom: 10
                     }}
                   >
-                    {(chat.imageUrls?.length
-                      ? chat.imageUrls
-                      : [chat.imageUrl]
-                    ).map((url, imageIndex) => (
-                      <div
-                        key={`${url}-${imageIndex}`}
-                        style={{ display: "grid", gap: 6 }}
-                      >
+                    {(chat.imageUrls?.length ? chat.imageUrls : [chat.imageUrl]).map((url, imageIndex) => (
+                      <div key={`${url}-${imageIndex}`} style={{ display: "grid", gap: 6 }}>
                         <img
                           src={url}
                           alt={`Gambar chat ${imageIndex + 1}`}
@@ -2397,15 +1760,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                           }}
                         />
 
-                        <small
-                          style={{
-                            color: "rgba(255,255,255,0.78)",
-                            fontSize: 12,
-                            textAlign: "center"
-                          }}
-                        >
-                          Tap preview {imageIndex + 1}
-                        </small>
+                        <small style={{ color: "rgba(255,255,255,0.78)", fontSize: 12, textAlign: "center" }}>Tap preview {imageIndex + 1}</small>
                       </div>
                     ))}
                   </div>
@@ -2422,39 +1777,14 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             )}
           </div>
 
-          <div
-            style={{
-              padding: "10px 14px",
-              borderTop: "1px solid #27272a",
-              background: "#0f0f11",
-              display: "grid",
-              gap: 10
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                background: "#101014",
-                border: "1px solid #27272a",
-                borderRadius: 14,
-                padding: 10
-              }}
-            >
+          <div style={{ padding: "10px 14px", borderTop: "1px solid #27272a", background: "#0f0f11", display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 8, background: "#101014", border: "1px solid #27272a", borderRadius: 14, padding: 10 }}>
               <strong style={{ fontSize: 14 }}>Model AI Chat</strong>
 
               <select
                 value={selectedGroqModel}
                 onChange={(e) => setSelectedGroqModel(e.target.value)}
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  border: "1px solid #2f2f35",
-                  background: "#0f0f11",
-                  color: "#fff",
-                  padding: 12,
-                  outline: "none"
-                }}
+                style={{ width: "100%", borderRadius: 12, border: "1px solid #2f2f35", background: "#0f0f11", color: "#fff", padding: 12, outline: "none" }}
               >
                 {GROQ_CHAT_MODELS.map((model) => (
                   <option key={model.id} value={model.id}>
@@ -2463,81 +1793,29 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 ))}
               </select>
 
-              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
-                Kalau upload gambar, sistem otomatis memakai Groq Vision.
-                Selector ini dipakai untuk chat teks biasa.
-              </small>
+              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>Kalau upload gambar, sistem otomatis memakai Groq Vision. Selector ini dipakai untuk chat teks biasa.</small>
             </div>
 
             {chatImagePreviews.length > 0 && (
-              <div
-                style={{
-                  background: "#101014",
-                  border: "1px solid #27272a",
-                  borderRadius: 14,
-                  padding: 10,
-                  display: "grid",
-                  gap: 10
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    alignItems: "center",
-                    flexWrap: "wrap"
-                  }}
-                >
-                  <small style={{ color: "#a1a1aa" }}>
-                    {chatImagePreviews.length} gambar siap dikirim dan akan
-                    tersimpan di history chat
-                  </small>
+              <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 14, padding: 10, display: "grid", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <small style={{ color: "#a1a1aa" }}>{chatImagePreviews.length} gambar siap dikirim dan akan tersimpan di history chat</small>
 
-                  <button
-                    onClick={() => clearChatImage()}
-                    style={{
-                      width: "auto",
-                      padding: "7px 10px",
-                      background: "#18181b",
-                      border: "1px solid #2f2f35"
-                    }}
-                  >
+                  <button onClick={() => clearChatImage()} style={{ width: "auto", padding: "7px 10px", background: "#18181b", border: "1px solid #2f2f35" }}>
                     Hapus Semua
                   </button>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(120px, 1fr))",
-                    gap: 10
-                  }}
-                >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
                   {chatImagePreviews.map((item, index) => (
                     <div key={item.url} style={{ display: "grid", gap: 6 }}>
                       <img
                         src={item.url}
                         alt={item.name || `Preview ${index + 1}`}
-                        style={{
-                          width: "100%",
-                          height: 120,
-                          objectFit: "contain",
-                          borderRadius: 12,
-                          background: "#000",
-                          border: "1px solid #27272a"
-                        }}
+                        style={{ width: "100%", height: 120, objectFit: "contain", borderRadius: 12, background: "#000", border: "1px solid #27272a" }}
                       />
 
-                      <button
-                        onClick={() => clearChatImage(index)}
-                        style={{
-                          width: "100%",
-                          padding: "7px 10px",
-                          background: "#7f1d1d"
-                        }}
-                      >
+                      <button onClick={() => clearChatImage(index)} style={{ width: "100%", padding: "7px 10px", background: "#7f1d1d" }}>
                         Hapus
                       </button>
                     </div>
@@ -2547,28 +1825,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             )}
 
             {chatImageError && (
-              <div
-                style={{
-                  background: "rgba(220, 38, 38, 0.15)",
-                  color: "#fca5a5",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  borderRadius: 12,
-                  padding: 10,
-                  lineHeight: 1.5
-                }}
-              >
+              <div style={{ background: "rgba(220, 38, 38, 0.15)", color: "#fca5a5", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 12, padding: 10, lineHeight: 1.5 }}>
                 {chatImageError}
               </div>
             )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                alignItems: "center"
-              }}
-            >
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <label
                 style={{
                   display: "inline-flex",
@@ -2584,19 +1846,10 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 }}
               >
                 📎 Upload Gambar
-                <input
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  onChange={handleChatImageUpload}
-                  style={{ display: "none" }}
-                />
+                <input type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleChatImageUpload} style={{ display: "none" }} />
               </label>
 
-              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
-                Maks 5 gambar • 4MB/gambar • JPG/PNG/WEBP • tersimpan di
-                history chat.
-              </small>
+              <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>Maks 5 gambar • 4MB/gambar • JPG/PNG/WEBP • tersimpan di history chat.</small>
             </div>
           </div>
 
@@ -2604,11 +1857,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={
-                chatImageFiles.length > 0
-                  ? "Tulis pertanyaan tentang gambar ini..."
-                  : "Tulis perintah untuk AI..."
-              }
+              placeholder={chatImageFiles.length > 0 ? "Tulis pertanyaan tentang gambar ini..." : "Tulis perintah untuk AI..."}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -2618,11 +1867,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             />
 
             <button onClick={sendMessage} disabled={loading}>
-              {loading
-                ? "Mengirim..."
-                : chatImageFiles.length > 0
-                ? `Kirim + ${chatImageFiles.length} Gambar`
-                : "Kirim"}
+              {loading ? "Mengirim..." : chatImageFiles.length > 0 ? `Kirim + ${chatImageFiles.length} Gambar` : "Kirim"}
             </button>
           </div>
         </section>
@@ -2637,10 +1882,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
             <h2>Tempmail Tool</h2>
 
-            <p>
-              Buat banyak email sementara. Email lama tetap tersimpan dan bisa
-              dicek kembali.
-            </p>
+            <p>Buat banyak email sementara. Email lama tetap tersimpan dan bisa dicek kembali.</p>
 
             <button onClick={createTempMail} disabled={tempLoading}>
               {tempLoading ? "Mohon tunggu..." : "+ Buat Email Baru"}
@@ -2653,14 +1895,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                 <p>Belum ada tempmail.</p>
               ) : (
                 tempMails.map((mail) => (
-                  <div
-                    key={mail.id}
-                    className={
-                      activeTempMail?.id === mail.id
-                        ? "tempmail-item active"
-                        : "tempmail-item"
-                    }
-                  >
+                  <div key={mail.id} className={activeTempMail?.id === mail.id ? "tempmail-item active" : "tempmail-item"}>
                     <button
                       onClick={() => {
                         setActiveTempMail(mail);
@@ -2681,24 +1916,12 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               <>
                 <div className="tempmail-box">
                   <h3>Email Aktif</h3>
-
                   <div className="tempmail-email">{activeTempMail.email}</div>
-
                   <p>Expired: {activeTempMail.deleted_in || "-"}</p>
 
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(activeTempMail.email)
-                    }
-                  >
-                    Copy Email
-                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(activeTempMail.email)}>Copy Email</button>
 
-                  <button
-                    onClick={() => checkTempMail(activeTempMail)}
-                    disabled={tempLoading}
-                    style={{ marginTop: 10 }}
-                  >
+                  <button onClick={() => checkTempMail(activeTempMail)} disabled={tempLoading} style={{ marginTop: 10 }}>
                     {tempLoading ? "Mohon tunggu..." : "Check Inbox"}
                   </button>
                 </div>
@@ -2710,18 +1933,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     tempMessages.map((msg, index) => (
                       <div key={index} className="tempmail-message">
                         <h4>{msg.subject || msg.title || "No Subject"}</h4>
-
-                        <p>
-                          From:{" "}
-                          {msg.from ||
-                            msg.sender ||
-                            msg.from_email ||
-                            "Unknown"}
-                        </p>
-
-                        <div className="tempmail-content">
-                          {getMailBody(msg)}
-                        </div>
+                        <p>From: {msg.from || msg.sender || msg.from_email || "Unknown"}</p>
+                        <div className="tempmail-content">{getMailBody(msg)}</div>
                       </div>
                     ))
                   )}
@@ -2733,24 +1946,14 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       );
     }
 
-    if (activeTool === "image") {
-      return renderImageTool();
-    }
+    if (activeTool === "image") return renderImageTool();
 
     return (
       <section className="placeholder-panel">
         <div className="placeholder-card">
-          <div className="placeholder-icon">
-            {tools.find((t) => t.id === activeTool)?.icon}
-          </div>
-
+          <div className="placeholder-icon">{tools.find((t) => t.id === activeTool)?.icon}</div>
           <h2>{tools.find((t) => t.id === activeTool)?.name}</h2>
-
-          <p>
-            Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan ke
-            tool khusus.
-          </p>
-
+          <p>Fitur ini sudah disiapkan sebagai menu. Nanti bisa kita sambungkan ke tool khusus.</p>
           <button>Coming Soon</button>
         </div>
       </section>
@@ -2762,9 +1965,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       <main className="login-page">
         <div className="login-card">
           <div className="brand-logo">P</div>
-
           <h1>Properside AI</h1>
-
           <p>Sedang menyiapkan login...</p>
         </div>
       </main>
@@ -2776,13 +1977,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       <main className="login-page">
         <div className="login-card">
           <div className="brand-logo">P</div>
-
           <h1>Properside AI</h1>
-
-          <p>
-            Login dengan Google untuk menyimpan history chat dan menggunakan
-            workspace AI.
-          </p>
+          <p>Login dengan Google untuk menyimpan history chat dan menggunakan workspace AI.</p>
 
           {authError && (
             <p
@@ -2817,10 +2013,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
           </div>
         </div>
 
-        <button
-          className="tool-toggle-btn"
-          onClick={() => setToolMenuOpen(!toolMenuOpen)}
-        >
+        <button className="tool-toggle-btn" onClick={() => setToolMenuOpen(!toolMenuOpen)}>
           {toolMenuOpen ? "Tutup Menu ▲" : "Buka Menu Tools ▼"}
         </button>
 
@@ -2829,9 +2022,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             {tools.map((tool) => (
               <button
                 key={tool.id}
-                className={
-                  activeTool === tool.id ? "tool-button active" : "tool-button"
-                }
+                className={activeTool === tool.id ? "tool-button active" : "tool-button"}
                 onClick={() => {
                   setActiveTool(tool.id);
                   setToolMenuOpen(false);
@@ -2898,15 +2089,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              top: 16,
-              left: 16,
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              zIndex: 10000
-            }}
+            style={{ position: "absolute", top: 16, left: 16, display: "flex", gap: 8, flexWrap: "wrap", zIndex: 10000 }}
           >
             <a
               href={previewImageUrl}
@@ -2926,12 +2109,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             </a>
 
             <button
-              onClick={() =>
-                downloadImageFromUrl(
-                  previewImageUrl,
-                  `properside-ai-preview-${Date.now()}.png`
-                )
-              }
+              onClick={() => downloadImageFromUrl(previewImageUrl, `properside-ai-preview-${Date.now()}.png`)}
               style={{
                 width: "auto",
                 background: "#16a34a",
