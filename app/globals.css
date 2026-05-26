@@ -3360,3 +3360,57 @@ body {
     max-height: calc(100vh - 260px);
   }
 }
+
+/* =====================================================
+   DESKTOP HISTORY SEJAJAR CHAT BOX FIX
+   Tempel paling bawah app/globals.css
+===================================================== */
+
+@media (min-width: 900px) {
+  .chat-panel {
+    grid-template-columns: 360px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto auto !important;
+    align-items: stretch !important;
+  }
+
+  /* History hanya sejajar dengan chat box, tidak turun sampai bawah */
+  .chat-panel > .history-box {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    border-right: 1px solid #27272a !important;
+    border-bottom: 1px solid #27272a !important;
+    border-radius: 0 0 18px 0 !important;
+  }
+
+  /* Chat box kanan sejajar dengan history */
+  .chat-panel > .chat-box {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    border-bottom: 1px solid #27272a !important;
+  }
+
+  /* Panel model/upload tetap di bawah chat box kanan */
+  .chat-panel > div:nth-of-type(3) {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+  }
+
+  /* Input tetap bawah kanan */
+  .chat-panel > .input-area {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+  }
+
+  /* Area kosong bawah history jadi background biasa, tidak kelihatan panel panjang */
+  .history-list {
+    max-height: calc(100vh - 300px) !important;
+    overflow-y: auto !important;
+  }
+}
