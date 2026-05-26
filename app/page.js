@@ -883,6 +883,43 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
     setPreviewImageUrl("");
   }
 
+  async function downloadImageFromUrl(
+    url,
+    filename = `properside-ai-image-${Date.now()}.png`
+  ) {
+    if (!url) return;
+
+    try {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("Gagal mengambil file gambar.");
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = filename;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
   async function sendMessage() {
     if (!message.trim() || loading || !user?.email) return;
 
@@ -2208,19 +2245,35 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
                       <div
                         style={{
-                          display: "flex",
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr auto",
                           gap: 8
                         }}
                       >
                         <button
                           onClick={() => useHistoryImage(item)}
                           style={{
-                            flex: 1,
                             fontSize: 13,
                             padding: "8px 10px"
                           }}
                         >
                           Preview
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            downloadImageFromUrl(
+                              item.image_url,
+                              `properside-ai-history-${item.id || Date.now()}.png`
+                            )
+                          }
+                          style={{
+                            fontSize: 13,
+                            padding: "8px 10px",
+                            background: "#16a34a"
+                          }}
+                        >
+                          Download
                         </button>
 
                         <button
@@ -2843,27 +2896,56 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             ✕ Tutup
           </button>
 
-          <a
-            href={previewImageUrl}
-            target="_blank"
-            rel="noreferrer"
+          <div
             onClick={(e) => e.stopPropagation()}
             style={{
               position: "absolute",
               top: 16,
               left: 16,
-              background: "rgba(24, 24, 27, 0.95)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              color: "#fff",
-              borderRadius: 999,
-              padding: "10px 14px",
-              textDecoration: "none",
-              fontSize: 14,
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
               zIndex: 10000
             }}
           >
-            Buka Asli
-          </a>
+            <a
+              href={previewImageUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: "rgba(24, 24, 27, 0.95)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff",
+                borderRadius: 999,
+                padding: "10px 14px",
+                textDecoration: "none",
+                fontSize: 14
+              }}
+            >
+              Buka Asli
+            </a>
+
+            <button
+              onClick={() =>
+                downloadImageFromUrl(
+                  previewImageUrl,
+                  `properside-ai-preview-${Date.now()}.png`
+                )
+              }
+              style={{
+                width: "auto",
+                background: "#16a34a",
+                border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff",
+                borderRadius: 999,
+                padding: "10px 14px",
+                cursor: "pointer",
+                fontSize: 14
+              }}
+            >
+              Download
+            </button>
+          </div>
 
           <img
             src={previewImageUrl}
