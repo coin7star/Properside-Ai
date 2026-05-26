@@ -80,7 +80,7 @@ async function uploadChatImageToStorage({
   file,
   user_email,
   session_id,
-  message_id
+  storage_file_id
 }) {
   const { supabaseUrl } = getSupabaseConfig();
 
@@ -88,7 +88,7 @@ async function uploadChatImageToStorage({
   const emailFolder = safeEmailFolder(user_email);
   const originalName = safeFileName(file.name || `chat-image.${ext}`);
 
-  const storagePath = `${emailFolder}/${session_id}/${message_id}-${Date.now()}-${originalName}`;
+  const storagePath = `${emailFolder}/${session_id}/${storage_file_id}-${Date.now()}-${originalName}`;
 
   const buffer = await file.arrayBuffer();
 
@@ -395,7 +395,7 @@ export async function POST(req) {
       session_id = sessionData.id;
     }
 
-    const userMessageId = crypto.randomUUID();
+    const storageFileId = crypto.randomUUID();
 
     let imageStorageData = {
       image_url: null,
@@ -408,14 +408,13 @@ export async function POST(req) {
         file: imageData.file,
         user_email,
         session_id,
-        message_id: userMessageId
+        storage_file_id: storageFileId
       });
     }
 
     const { error: insertUserMessageError } = await supabase
       .from("chat_messages")
       .insert({
-        id: userMessageId,
         session_id,
         user_email,
         role: "user",
@@ -436,31 +435,6 @@ export async function POST(req) {
         },
         500
       );
-    }
-
-    if (hasImage && imageStorageData.image_url) {
-      const { error: updateImageError } = await supabase
-        .from("chat_messages")
-        .update({
-          image_url: imageStorageData.image_url,
-          image_storage_path: imageStorageData.image_storage_path
-        })
-        .eq("id", userMessageId)
-        .eq("user_email", user_email);
-
-      if (updateImageError) {
-        return jsonResponse(
-          {
-            reply:
-              "Gambar berhasil masuk Storage, tapi gagal update image_url ke database: " +
-              updateImageError.message,
-            session_id,
-            image_url: imageStorageData.image_url,
-            image_storage_path: imageStorageData.image_storage_path
-          },
-          500
-        );
-      }
     }
 
     const { data: memoryMessages, error: memoryError } = await supabase
