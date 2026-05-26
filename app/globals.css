@@ -1728,3 +1728,129 @@ h1 {
     min-height: auto;
   }
 }
+
+/* =====================================================
+   PC CHAT BOTTOM FULL WIDTH FIX
+   Model AI + Upload + Input melebar menutup area kosong kiri
+   Khusus PC/laptop saja
+===================================================== */
+
+@media (min-width: 900px) {
+  .chat-panel {
+    width: 100%;
+    height: calc(100vh - 102px);
+    min-height: 0;
+
+    display: grid !important;
+    grid-template-columns: 360px minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto auto !important;
+
+    gap: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  /* History tetap di kiri, sejajar dengan chat box */
+  .chat-panel > .history-box {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    overflow: hidden !important;
+    padding: 18px !important;
+
+    border-right: 1px solid #27272a !important;
+    border-bottom: 1px solid #27272a !important;
+    border-radius: 0 0 18px 0 !important;
+    background: #0f0f11 !important;
+  }
+
+  /* List history baru scroll kalau isinya banyak */
+  .chat-panel > .history-box .history-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Chat box tetap di kanan atas */
+  .chat-panel > .chat-box {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    border-bottom: 1px solid #27272a !important;
+  }
+
+  /* Panel Model AI Chat + Upload Gambar dibuat full melebar */
+  .chat-panel > div:nth-of-type(3) {
+    grid-column: 1 / 3 !important;
+    grid-row: 2 !important;
+
+    width: 100% !important;
+    max-height: 220px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    background: #0f0f11 !important;
+    border-top: 1px solid #27272a !important;
+    border-bottom: 1px solid #27272a !important;
+
+    padding: 12px 20px !important;
+  }
+
+  /* Input chat + tombol kirim dibuat full melebar */
+  .chat-panel > .input-area {
+    grid-column: 1 / 3 !important;
+    grid-row: 3 !important;
+
+    width: 100% !important;
+    min-height: 96px !important;
+    margin-top: 0 !important;
+
+    background: #0f0f11 !important;
+    border-top: none !important;
+
+    padding: 14px 20px !important;
+
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 220px !important;
+    gap: 14px !important;
+    align-items: stretch !important;
+
+    position: relative !important;
+    bottom: auto !important;
+    z-index: 10 !important;
+  }
+
+  .chat-panel > .input-area textarea {
+    width: 100% !important;
+    min-height: 76px !important;
+    max-height: 140px !important;
+
+    resize: none !important;
+    overflow-y: auto !important;
+  }
+
+  .chat-panel > .input-area button {
+    width: 220px !important;
+    height: 76px !important;
+    align-self: stretch !important;
+  }
+}
