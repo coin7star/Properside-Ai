@@ -50,6 +50,7 @@ function MessageContent({ text }) {
             <div className="code-block" key={index}>
               <div className="code-header">
                 <span>{language}</span>
+
                 <button
                   className="copy-btn"
                   onClick={() => navigator.clipboard.writeText(code)}
@@ -157,6 +158,9 @@ function MessageContent({ text }) {
 export default function Home() {
   const [supabase, setSupabase] = useState(null);
   const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState("");
+
   const [activeTool, setActiveTool] = useState("home");
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
 
@@ -175,24 +179,61 @@ export default function Home() {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState("");
   const [generatedImage, setGeneratedImage] = useState(null);
-  const [imageProvider, setImageProvider] = useState("auto");
+  const [imageProvider, setImageProvider] = useState("huggingface");
   const [uploadedImageFile, setUploadedImageFile] = useState(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState("");
 
   useEffect(() => {
-    const client = getSupabase();
-    setSupabase(client);
+    async function initAuth() {
+      try {
+        const client = getSupabase();
 
-    client.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
-    });
+        if (!client) {
+          setAuthError(
+            "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
+          );
+          setAuthReady(true);
+          return;
+        }
 
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+        setSupabase(client);
+
+        const { data, error } = await client.auth.getUser();
+
+        if (error) {
+          console.log("Gagal membaca user:", error.message);
+        }
+
+        setUser(data?.user || null);
+
+        const { data: listener } = client.auth.onAuthStateChange(
+          (_event, session) => {
+            setUser(session?.user || null);
+          }
+        );
+
+        setAuthReady(true);
+
+        return () => {
+          listener?.subscription?.unsubscribe();
+        };
+      } catch (error) {
+        console.error("Auth init error:", error);
+        setAuthError("Terjadi error saat menyiapkan login Supabase.");
+        setAuthReady(true);
+      }
+    }
+
+    let unsubscribe;
+
+    initAuth().then((cleanup) => {
+      unsubscribe = cleanup;
     });
 
     return () => {
-      data?.subscription?.unsubscribe();
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
     };
   }, []);
 
@@ -400,12 +441,21 @@ export default function Home() {
   }
 
   async function loginGoogle() {
-    if (!supabase) return;
+    if (!supabase) {
+      alert(
+        "Supabase belum siap. Cek NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Cloudflare."
+      );
+      return;
+    }
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account"
+        }
       }
     });
   }
@@ -505,8 +555,8 @@ export default function Home() {
     setGeneratedImage(null);
     setImageError("");
 
-    if (!["auto", "gemini"].includes(imageProvider)) {
-      setImageProvider("gemini");
+    if (!["auto", "gemini", "huggingface"].includes(imageProvider)) {
+      setImageProvider("huggingface");
     }
   }
 
@@ -531,9 +581,9 @@ export default function Home() {
       let data;
 
       if (uploadedImageFile) {
-        if (!["auto", "gemini"].includes(imageProvider)) {
+        if (!["auto", "gemini", "huggingface"].includes(imageProvider)) {
           setImageError(
-            "Fitur edit gambar saat ini hanya support Gemini atau Auto."
+            "Fitur edit gambar saat ini support Auto, Gemini, atau Hugging Face."
           );
           return;
         }
@@ -565,7 +615,7 @@ export default function Home() {
       }
 
       if (!res.ok || !data?.success) {
-        setImageError(data?.error || "Gagal generate gambar.");
+        setImageError(data?.error || "Gagal generate / edit gambar.");
         return;
       }
 
@@ -609,6 +659,7 @@ export default function Home() {
   function useExamplePrompt(text) {
     setImagePrompt(text);
     setActiveTool("image");
+    setImageProvider("huggingface");
     setToolMenuOpen(false);
   }
 
@@ -697,10 +748,9 @@ export default function Home() {
                 }}
               >
                 {[
+                  { id: "huggingface", name: "Hugging Face" },
                   { id: "auto", name: "Auto" },
-                  { id: "gemini", name: "Gemini" },
-                  { id: "fal", name: "fal.ai" },
-                  { id: "huggingface", name: "Hugging Face" }
+                  { id: "gemini", name: "Gemini" }
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -738,10 +788,12 @@ export default function Home() {
                 style={{
                   display: "block",
                   marginTop: 6,
-                  color: "#a1a1aa"
+                  color: "#71717a",
+                  lineHeight: 1.5
                 }}
               >
-                Catatan: upload + edit gambar saat ini support Gemini / Auto.
+                Text-to-image paling aman pakai Hugging Face. Upload + edit
+                gambar sekarang bisa coba Auto, Gemini, atau Hugging Face.
               </small>
             </div>
 
@@ -813,7 +865,7 @@ export default function Home() {
               onChange={(e) => setImagePrompt(e.target.value)}
               placeholder={
                 uploadedImageFile
-                  ? 'Contoh: "Ubah background jadi cyberpunk malam, tetap pertahankan wajah orangnya"'
+                  ? 'Contoh: "Ubah background jadi cyberpunk malam, tetap pertahankan objek utama"'
                   : 'Contoh: "Buat gambar kucing astronaut lucu di bulan, style 3D, detail tinggi"'
               }
               rows={5}
@@ -1019,8 +1071,13 @@ export default function Home() {
                 flexWrap: "wrap"
               }}
             >
-              <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
-              <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
+              <button onClick={() => setActiveTool("chat")}>
+                Mulai Chat AI
+              </button>
+
+              <button onClick={() => setActiveTool("image")}>
+                Buka AI Image
+              </button>
             </div>
           </div>
         </section>
@@ -1209,6 +1266,20 @@ export default function Home() {
     );
   }
 
+  if (!authReady) {
+    return (
+      <main className="login-page">
+        <div className="login-card">
+          <div className="brand-logo">P</div>
+
+          <h1>Properside AI</h1>
+
+          <p>Sedang menyiapkan login...</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!user) {
     return (
       <main className="login-page">
@@ -1221,6 +1292,21 @@ export default function Home() {
             Login dengan Google untuk menyimpan history chat dan menggunakan
             workspace AI.
           </p>
+
+          {authError && (
+            <p
+              style={{
+                color: "#fca5a5",
+                background: "rgba(220, 38, 38, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: 14,
+                padding: 12,
+                marginTop: 12
+              }}
+            >
+              {authError}
+            </p>
+          )}
 
           <button onClick={loginGoogle}>Login dengan Google</button>
         </div>
