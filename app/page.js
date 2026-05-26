@@ -312,7 +312,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
       setChats(
         (data.data || []).map((msg) => ({
           role: msg.role,
-          text: msg.content
+          text: msg.content,
+          imageUrl: msg.image_url || ""
         }))
       );
     } catch {
@@ -424,6 +425,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
 
     const userText = message.trim();
     const selectedImage = chatImageFile;
+    const localImagePreview = selectedImage ? chatImagePreview : "";
 
     setMessage("");
     setLoading(true);
@@ -435,7 +437,8 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         role: "user",
         text: selectedImage
           ? `${userText}\n\n[User mengirim gambar untuk dianalisis]`
-          : userText
+          : userText,
+        imageUrl: localImagePreview
       }
     ]);
 
@@ -477,13 +480,29 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
         setActiveSessionId(data.session_id);
       }
 
-      setChats((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: data.reply || "Tidak ada jawaban."
+      setChats((prev) => {
+        const nextChats = [...prev];
+
+        if (data?.image_url) {
+          for (let i = nextChats.length - 1; i >= 0; i -= 1) {
+            if (nextChats[i]?.role === "user" && nextChats[i]?.imageUrl) {
+              nextChats[i] = {
+                ...nextChats[i],
+                imageUrl: data.image_url
+              };
+              break;
+            }
+          }
         }
-      ]);
+
+        return [
+          ...nextChats,
+          {
+            role: "ai",
+            text: data.reply || "Tidak ada jawaban."
+          }
+        ];
+      });
 
       clearChatImage();
       loadSessions(user.email);
@@ -1813,6 +1832,22 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                     : "message ai-message"
                 }
               >
+                {chat.imageUrl && (
+                  <img
+                    src={chat.imageUrl}
+                    alt="Gambar chat"
+                    style={{
+                      width: "100%",
+                      maxHeight: 260,
+                      objectFit: "contain",
+                      borderRadius: 14,
+                      background: "#000",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      marginBottom: 10
+                    }}
+                  />
+                )}
+
                 <MessageContent text={chat.text} />
               </div>
             ))}
@@ -1853,7 +1888,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
                   }}
                 >
                   <small style={{ color: "#a1a1aa" }}>
-                    Gambar siap dikirim ke AI Vision
+                    Gambar siap dikirim dan akan tersimpan di history chat
                   </small>
 
                   <button
@@ -1931,8 +1966,7 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
               </label>
 
               <small style={{ color: "#a1a1aa", lineHeight: 1.5 }}>
-                Maks 4MB • JPG/PNG/WEBP • cocok untuk screenshot error, UI,
-                coding, atau gambar masalah.
+                Maks 4MB • JPG/PNG/WEBP • gambar akan tersimpan di history chat.
               </small>
             </div>
           </div>
@@ -1955,7 +1989,11 @@ Create a fresh variation. Keep the result close to the user's prompt, but do not
             />
 
             <button onClick={sendMessage} disabled={loading}>
-              {loading ? "Mengirim..." : chatImageFile ? "Kirim + Gambar" : "Kirim"}
+              {loading
+                ? "Mengirim..."
+                : chatImageFile
+                ? "Kirim + Gambar"
+                : "Kirim"}
             </button>
           </div>
         </section>
