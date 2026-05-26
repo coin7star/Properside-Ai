@@ -245,9 +245,32 @@ function CodePreviewBlock({ language, code, blockId }) {
   const [showPreview, setShowPreview] = useState(false);
   const [bigPreview, setBigPreview] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState("");
 
   const previewable = isPreviewableCode(language, code);
   const previewHtml = previewable ? buildPreviewHtml(language, code) : "";
+
+  useEffect(() => {
+    if (!showPreview || !previewable || !previewHtml) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl("");
+      }
+
+      return;
+    }
+
+    const blob = new Blob([previewHtml], {
+      type: "text/html"
+    });
+
+    const url = URL.createObjectURL(blob);
+    setPreviewUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [showPreview, refreshKey, previewHtml, previewable]);
 
   async function copyCode() {
     try {
@@ -335,19 +358,32 @@ function CodePreviewBlock({ language, code, blockId }) {
             </div>
           </div>
 
-          <iframe
-            key={`preview-${blockId}-${refreshKey}`}
-            title={`Live Preview ${blockId}`}
-            sandbox="allow-scripts allow-forms allow-modals"
-            srcDoc={previewHtml}
-            style={{
-              width: "100%",
-              height: 360,
-              border: "none",
-              background: "#fff",
-              display: "block"
-            }}
-          />
+          {previewUrl ? (
+            <iframe
+              key={`preview-${blockId}-${refreshKey}`}
+              title={`Live Preview ${blockId}`}
+              sandbox="allow-scripts allow-forms allow-modals allow-same-origin"
+              src={previewUrl}
+              style={{
+                width: "100%",
+                height: 420,
+                border: "none",
+                background: "#fff",
+                display: "block",
+                pointerEvents: "auto",
+                touchAction: "auto"
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                padding: 16,
+                color: "#a1a1aa"
+              }}
+            >
+              Menyiapkan live preview...
+            </div>
+          )}
         </div>
       )}
 
@@ -360,8 +396,8 @@ function CodePreviewBlock({ language, code, blockId }) {
             lineHeight: 1.5
           }}
         >
-          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Untuk hasil
-          terbaik, minta AI buat “1 file HTML lengkap”.
+          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Untuk kalkulator,
+          minta AI buat “1 file HTML lengkap dengan CSS dan JavaScript internal”.
         </small>
       )}
 
@@ -403,7 +439,10 @@ function CodePreviewBlock({ language, code, blockId }) {
               }}
             >
               <button
-                onClick={refreshPreview}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  refreshPreview();
+                }}
                 style={{
                   width: "auto",
                   background: "#27272a",
@@ -414,7 +453,10 @@ function CodePreviewBlock({ language, code, blockId }) {
               </button>
 
               <button
-                onClick={() => setBigPreview(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBigPreview(false);
+                }}
                 style={{
                   width: "auto",
                   background: "#7f1d1d",
@@ -426,20 +468,35 @@ function CodePreviewBlock({ language, code, blockId }) {
             </div>
           </div>
 
-          <iframe
-            key={`big-preview-${blockId}-${refreshKey}`}
-            title={`Big Live Preview ${blockId}`}
-            sandbox="allow-scripts allow-forms allow-modals"
-            srcDoc={previewHtml}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "1px solid #27272a",
-              borderRadius: 16,
-              background: "#fff"
-            }}
-          />
+          {previewUrl ? (
+            <iframe
+              key={`big-preview-${blockId}-${refreshKey}`}
+              title={`Big Live Preview ${blockId}`}
+              sandbox="allow-scripts allow-forms allow-modals allow-same-origin"
+              src={previewUrl}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                height: "100%",
+                border: "1px solid #27272a",
+                borderRadius: 16,
+                background: "#fff",
+                pointerEvents: "auto",
+                touchAction: "auto"
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                background: "#fff",
+                color: "#111",
+                padding: 20,
+                borderRadius: 16
+              }}
+            >
+              Menyiapkan live preview...
+            </div>
+          )}
         </div>
       )}
     </div>
