@@ -3709,3 +3709,53 @@ body {
     overflow: hidden !important;
   }
 }
+
+/* =====================================================
+   AI IMAGE TOP + HISTORY POPUP FIX
+   Tempel paling bawah app/globals.css
+===================================================== */
+
+@media (min-width: 900px) {
+  .main-area > .placeholder-panel {
+    height: calc(100vh - 102px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 28px 28px 80px !important;
+    scroll-padding-top: 28px !important;
+  }
+
+  .main-area > .placeholder-panel .placeholder-card {
+    margin-top: 0 !important;
+  }
+
+  .main-area > .placeholder-panel .placeholder-icon,
+  .main-area > .placeholder-panel h2,
+  .main-area > .placeholder-panel p {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* History AI Image jadi thumbnail rapi */
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 210px)) !important;
+    justify-content: start !important;
+    align-items: start !important;
+  }
+
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] > div {
+    max-width: 210px !important;
+  }
+
+  .placeholder-panel div[style*="repeat(auto-fit, minmax(160px, 1fr))"] img {
+    width: 100% !important;
+    height: 170px !important;
+    object-fit: cover !important;
+    cursor: zoom-in !important;
+  }
+
+  /* Gambar hasil generate utama tetap besar tapi tidak kelewat */
+  .placeholder-panel img[alt]:not([alt*="history"]):not([alt="AI image history"]) {
+    max-height: 520px !important;
+    object-fit: contain !important;
+  }
+}
