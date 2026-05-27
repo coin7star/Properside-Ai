@@ -884,6 +884,30 @@ export default function Home() {
     setPreviewImageUrl(item.image_url);
   }
 
+  function reuseHistoryPrompt(item) {
+    const promptText = item?.prompt || "";
+
+    if (!promptText.trim()) {
+      setImageSaveInfo("Prompt history ini kosong, tidak bisa dipakai ulang.");
+      setTimeout(() => setImageSaveInfo(""), 3500);
+      return;
+    }
+
+    clearUploadedImage();
+    setGeneratedImage(null);
+    setImageError("");
+    setImageSaveInfo("");
+    setImagePrompt(promptText);
+    setImageProvider(item?.provider || "huggingface");
+
+    setTimeout(() => {
+      const panel = document.querySelector(".main-area > .placeholder-panel");
+      if (panel) {
+        panel.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 100);
+  }
+
   function getProviderLabel(provider) {
     if (provider === "gemini") return "Gemini";
     if (provider === "fal") return "fal.ai";
@@ -1067,7 +1091,7 @@ export default function Home() {
 
             <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <div><strong>History AI Image</strong><p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>Gambar yang kamu simpan akan muncul di sini.</p></div>
+                <div><strong>History AI Image</strong><p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>Gambar yang kamu simpan akan muncul di sini. Klik Reuse untuk memakai prompt lama lagi.</p></div>
                 <button onClick={() => loadImageHistory(user.email)} disabled={imageHistoryLoading} style={{ width: "auto", background: imageHistoryLoading ? "#3f3f46" : "#18181b", border: "1px solid #2f2f35" }}>{imageHistoryLoading ? "Merefresh..." : "Refresh"}</button>
               </div>
 
@@ -1082,10 +1106,11 @@ export default function Home() {
                       <img src={item.image_url} alt={item.prompt || "AI image history"} onClick={() => useHistoryImage(item)} style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 14, cursor: "zoom-in", background: "#000" }} />
                       <small style={{ color: "#a1a1aa", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.prompt || "Tanpa prompt"}</small>
                       <small style={{ color: "#71717a" }}>{item.image_type === "edit" ? "Edit" : "Generate"} · {item.provider || "-"}</small>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button onClick={() => useHistoryImage(item)} style={{ fontSize: 13, padding: "8px 10px" }}>Preview</button>
+                        <button onClick={() => reuseHistoryPrompt(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#7c3aed" }}>Reuse</button>
                         <button onClick={() => downloadImageFromUrl(item.image_url, `properside-ai-history-${item.id || Date.now()}.png`)} style={{ fontSize: 13, padding: "8px 10px", background: "#16a34a" }}>Download</button>
-                        <button onClick={() => deleteImageHistoryItem(item)} style={{ width: "auto", fontSize: 13, padding: "8px 10px", background: "#7f1d1d" }}>🗑️</button>
+                        <button onClick={() => deleteImageHistoryItem(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#7f1d1d" }}>🗑️ Hapus</button>
                       </div>
                     </div>
                   ))}
