@@ -20,6 +20,7 @@ const tools = [
   { id: "chat", name: "AI Chat", icon: "💬" },
   { id: "tempmail", name: "Tempmail", icon: "📧" },
   { id: "image", name: "AI Image", icon: "🖼️" },
+  { id: "video", name: "AI Video", icon: "🎬" },
   { id: "text", name: "AI Writer", icon: "✍️" },
   { id: "code", name: "AI Code", icon: "💻" },
   { id: "translate", name: "Translate", icon: "🌐" },
@@ -128,6 +129,25 @@ function CodePreviewBlock({ language, code, blockId }) {
     }
   }
 
+  function downloadHtmlFile() {
+    if (!previewable || !previewHtml) return;
+
+    try {
+      const blob = new Blob([previewHtml], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `properside-preview-${Date.now()}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Gagal download file HTML.");
+    }
+  }
+
   return (
     <div className="code-block">
       <div className="code-header">
@@ -142,6 +162,11 @@ function CodePreviewBlock({ language, code, blockId }) {
               }}
             >
               {showPreview ? "Tutup Live" : "Live Preview"}
+            </button>
+          )}
+          {previewable && (
+            <button className="copy-btn" onClick={downloadHtmlFile}>
+              Download HTML
             </button>
           )}
           <button className="copy-btn" onClick={copyCode}>Copy</button>
@@ -213,7 +238,7 @@ function CodePreviewBlock({ language, code, blockId }) {
 
       {previewable && (
         <small style={{ display: "block", color: "#a1a1aa", marginTop: 8, lineHeight: 1.5 }}>
-          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Klik Buka Besar tidak mereset preview. Yang reset hanya tombol Refresh.
+          Live Preview mendukung HTML, CSS, JavaScript, dan SVG. Kamu juga bisa download hasil preview sebagai file .html.
         </small>
       )}
     </div>
@@ -327,6 +352,23 @@ export default function Home() {
   const [savedImageKeys, setSavedImageKeys] = useState([]);
   const [imageSaveInfo, setImageSaveInfo] = useState("");
 
+  const [videoPrompt, setVideoPrompt] = useState("");
+  const [videoImageFile, setVideoImageFile] = useState(null);
+  const [videoImagePreview, setVideoImagePreview] = useState("");
+  const [videoSourceImageUrl, setVideoSourceImageUrl] = useState("");
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState("");
+  const [videoInfo, setVideoInfo] = useState("");
+  const [videoTaskId, setVideoTaskId] = useState("");
+  const [videoStatus, setVideoStatus] = useState("");
+  const [generatedVideo, setGeneratedVideo] = useState(null);
+  const [videoDuration, setVideoDuration] = useState("5");
+  const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
+  const [videoModel, setVideoModel] = useState("kling");
+  const [videoHistory, setVideoHistory] = useState([]);
+  const [videoHistoryLoading, setVideoHistoryLoading] = useState(false);
+  const [videoSaving, setVideoSaving] = useState(false);
+
   const filteredSessions = useMemo(() => {
     const keyword = historySearch.trim().toLowerCase();
     if (!keyword) return sessions;
@@ -379,6 +421,7 @@ export default function Home() {
       loadSessions(user.email);
       loadTempMails(user.email);
       loadImageHistory(user.email);
+      loadVideoHistory(user.email);
     }
   }, [user]);
 
@@ -396,6 +439,12 @@ export default function Home() {
       if (uploadedImagePreview) URL.revokeObjectURL(uploadedImagePreview);
     };
   }, [uploadedImagePreview]);
+
+  useEffect(() => {
+    return () => {
+      if (videoImagePreview) URL.revokeObjectURL(videoImagePreview);
+    };
+  }, [videoImagePreview]);
 
   useEffect(() => {
     return () => {
@@ -921,6 +970,537 @@ export default function Home() {
     return lower.includes("quota") || lower.includes("billing") || lower.includes("limit") || lower.includes("credit") || lower.includes("payment");
   }
 
+
+  function clearVideoImage() {
+    if (videoImagePreview) URL.revokeObjectURL(videoImagePreview);
+
+    setVideoImageFile(null);
+    setVideoImagePreview("");
+    setVideoSourceImageUrl("");
+  }
+
+  function clearVideoTool() {
+    clearVideoImage();
+    setVideoPrompt("");
+    setVideoError("");
+    setVideoInfo("");
+    setVideoTaskId("");
+    setVideoStatus("");
+    setGeneratedVideo(null);
+    setVideoLoading(false);
+    setVideoDuration("5");
+    setVideoAspectRatio("16:9");
+    setVideoModel("kling");
+  }
+
+  function handleVideoImageUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type?.startsWith("image/")) {
+      setVideoError("File harus berupa gambar.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > CHAT_IMAGE_MAX_SIZE) {
+      setVideoError("Ukuran gambar terlalu besar. Maksimal 4MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (videoImagePreview) URL.revokeObjectURL(videoImagePreview);
+
+    setVideoImageFile(file);
+    setVideoImagePreview(URL.createObjectURL(file));
+    setVideoSourceImageUrl("");
+    setGeneratedVideo(null);
+    setVideoError("");
+    setVideoInfo("Gambar siap dijadikan video.");
+    event.target.value = "";
+  }
+
+  function useImageForVideo(item) {
+    if (!item?.image_url) return;
+
+    clearVideoImage();
+    setVideoSourceImageUrl(item.image_url);
+    setVideoPrompt(item?.prompt || "Buat video cinematic dengan gerakan kamera halus, objek utama tetap natural, detail tinggi.");
+    setGeneratedVideo(null);
+    setVideoError("");
+    setVideoInfo("Gambar dari History AI Image sudah dipilih untuk AI Video.");
+    setActiveTool("video");
+    setToolMenuOpen(false);
+
+    setTimeout(() => {
+      const panel = document.querySelector(".main-area > .placeholder-panel");
+      if (panel) panel.scrollTo({ top: 0, behavior: "smooth" });
+    }, 100);
+  }
+
+  function isVideoDoneStatus(status = "") {
+    const lower = String(status || "").toLowerCase();
+    return ["completed", "complete", "succeeded", "success", "done", "finished"].includes(lower);
+  }
+
+  function isVideoFailedStatus(status = "") {
+    const lower = String(status || "").toLowerCase();
+    return ["failed", "error", "cancelled", "canceled", "timeout"].includes(lower);
+  }
+
+  async function pollVideoTask(taskId, meta = {}) {
+    if (!taskId) return;
+
+    for (let attempt = 1; attempt <= 60; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, attempt <= 2 ? 3500 : 5000));
+
+      const res = await fetch(`/api/video?task_id=${encodeURIComponent(taskId)}&t=${Date.now()}`, {
+        cache: "no-store"
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Gagal cek status video.");
+      }
+
+      const status = data?.status || "processing";
+      setVideoStatus(status);
+      setVideoInfo(`Video sedang diproses Kling AI... status: ${status}. Jangan tutup halaman dulu.`);
+
+      if (data?.video_url && isVideoDoneStatus(status)) {
+        const result = {
+          prompt: meta.prompt || videoPrompt,
+          source_image_url: meta.source_image_url || videoSourceImageUrl,
+          video_url: data.video_url,
+          task_id: taskId,
+          status,
+          provider: "piapi",
+          model: meta.model || videoModel
+        };
+
+        setGeneratedVideo(result);
+        setVideoInfo("Video berhasil dibuat. Kamu bisa preview, download, atau simpan history.");
+        await saveVideoHistory(result, true);
+        return result;
+      }
+
+      if (isVideoFailedStatus(status)) {
+        throw new Error(`Generate video gagal. Status: ${status}`);
+      }
+    }
+
+    throw new Error("Video masih belum selesai setelah beberapa menit. Coba klik cek ulang nanti atau ulangi generate.");
+  }
+
+  async function generateVideo() {
+    if (videoLoading || !user?.email) return;
+
+    if (!videoPrompt.trim()) {
+      setVideoError("Prompt gerakan video wajib diisi.");
+      return;
+    }
+
+    if (!videoImageFile && !videoSourceImageUrl) {
+      setVideoError("Upload gambar atau pilih gambar dari History AI Image dulu.");
+      return;
+    }
+
+    try {
+      setVideoLoading(true);
+      setVideoError("");
+      setVideoInfo("Mengirim gambar ke PiAPI Kling AI...");
+      setVideoTaskId("");
+      setVideoStatus("");
+      setGeneratedVideo(null);
+
+      let res;
+
+      if (videoImageFile) {
+        const formData = new FormData();
+        formData.append("user_email", user.email);
+        formData.append("prompt", videoPrompt.trim());
+        formData.append("duration", videoDuration);
+        formData.append("aspect_ratio", videoAspectRatio);
+        formData.append("model", videoModel);
+        formData.append("image", videoImageFile);
+
+        res = await fetch("/api/video", {
+          method: "POST",
+          body: formData
+        });
+      } else {
+        res = await fetch("/api/video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_email: user.email,
+            prompt: videoPrompt.trim(),
+            image_url: videoSourceImageUrl,
+            duration: videoDuration,
+            aspect_ratio: videoAspectRatio,
+            model: videoModel
+          })
+        });
+      }
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        setVideoError(data?.error || "Gagal membuat task video.");
+        setVideoInfo("");
+        return;
+      }
+
+      const taskId = data?.task_id || "";
+      const videoUrl = data?.video_url || "";
+      const status = data?.status || "processing";
+      const sourceImageUrl = data?.source_image_url || videoSourceImageUrl;
+
+      setVideoTaskId(taskId);
+      setVideoStatus(status);
+
+      if (videoUrl && isVideoDoneStatus(status)) {
+        const result = {
+          prompt: videoPrompt.trim(),
+          source_image_url: sourceImageUrl,
+          video_url: videoUrl,
+          task_id: taskId,
+          status,
+          provider: "piapi",
+          model: videoModel
+        };
+
+        setGeneratedVideo(result);
+        setVideoInfo("Video berhasil dibuat.");
+        await saveVideoHistory(result, true);
+        return;
+      }
+
+      if (!taskId) {
+        setVideoError("PiAPI belum mengembalikan task_id. Cek response API / format endpoint.");
+        setVideoInfo("");
+        return;
+      }
+
+      setVideoInfo("Task video berhasil dibuat. Menunggu hasil dari Kling AI...");
+      await pollVideoTask(taskId, {
+        prompt: videoPrompt.trim(),
+        source_image_url: sourceImageUrl,
+        model: videoModel
+      });
+    } catch (error) {
+      setVideoError(error?.message || "Terjadi error saat generate video.");
+    } finally {
+      setVideoLoading(false);
+    }
+  }
+
+  async function loadVideoHistory(email = user?.email) {
+    if (!email) return;
+
+    try {
+      setVideoHistoryLoading(true);
+
+      const res = await fetch(`/api/video-history?user_email=${encodeURIComponent(email)}&t=${Date.now()}`, {
+        cache: "no-store"
+      });
+
+      const data = await res.json();
+
+      if (data?.success) {
+        setVideoHistory(data?.data || []);
+      }
+    } catch {
+      console.log("Gagal load video history.");
+    } finally {
+      setVideoHistoryLoading(false);
+    }
+  }
+
+  async function saveVideoHistory(video = generatedVideo, silent = false) {
+    if (!video?.video_url || !user?.email || videoSaving) return;
+
+    const exists = videoHistory.some((item) => item.video_url === video.video_url || (video.task_id && item.task_id === video.task_id));
+
+    if (exists) {
+      if (!silent) setVideoInfo("Video ini sudah tersimpan di history.");
+      return;
+    }
+
+    try {
+      setVideoSaving(true);
+
+      const res = await fetch("/api/video-history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user_email: user.email,
+          prompt: video.prompt || videoPrompt,
+          provider: video.provider || "piapi",
+          model: video.model || videoModel,
+          source_image_url: video.source_image_url || videoSourceImageUrl,
+          video_url: video.video_url,
+          task_id: video.task_id || videoTaskId,
+          status: video.status || videoStatus || "completed"
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        if (!silent) setVideoError(data?.error || "Gagal menyimpan video history.");
+        return;
+      }
+
+      if (data?.data) {
+        setVideoHistory((prev) => {
+          const existsNow = prev.some((item) => item.id === data.data.id);
+          if (existsNow) return prev;
+          return [data.data, ...prev];
+        });
+      } else {
+        await loadVideoHistory(user.email);
+      }
+
+      if (!silent) setVideoInfo("Video berhasil disimpan ke history.");
+    } catch (error) {
+      if (!silent) setVideoError(error?.message || "Gagal menyimpan video history.");
+    } finally {
+      setVideoSaving(false);
+    }
+  }
+
+  async function deleteVideoHistoryItem(item) {
+    if (!item?.id || !user?.email) return;
+
+    const ok = confirm("Hapus video ini dari history?");
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/video-history?id=${encodeURIComponent(item.id)}&user_email=${encodeURIComponent(user.email)}`, {
+        method: "DELETE"
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        alert(data?.error || "Gagal hapus video history.");
+        return;
+      }
+
+      setVideoHistory((prev) => prev.filter((video) => video.id !== item.id));
+    } catch {
+      alert("Gagal hapus video history.");
+    }
+  }
+
+  async function downloadVideoFromUrl(url, filename = `properside-ai-video-${Date.now()}.mp4`) {
+    if (!url) return;
+
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  function renderVideoTool() {
+    const selectedImage = videoImagePreview || videoSourceImageUrl;
+
+    return (
+      <section className="placeholder-panel">
+        <div className="placeholder-card" style={{ maxWidth: 1080, width: "100%", textAlign: "left" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div className="placeholder-icon">🎬</div>
+              <h2 style={{ marginBottom: 8 }}>AI Video Studio</h2>
+              <p style={{ margin: 0 }}>Ubah gambar menjadi video pendek memakai PiAPI Kling AI.</p>
+            </div>
+
+            <div style={{ border: "1px solid #2f2f35", background: "rgba(249, 115, 22, 0.16)", color: "#fed7aa", borderRadius: 999, padding: "10px 14px", fontSize: 14 }}>
+              Image to Video · Kling
+            </div>
+          </div>
+
+          <div style={{ marginTop: 20, display: "grid", gap: 16 }}>
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 12 }}>
+              <strong>1. Pilih Gambar</strong>
+
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleVideoImageUpload}
+                style={{ width: "100%", borderRadius: 14, border: "1px solid #2f2f35", background: "#0f0f11", color: "#fff", padding: 12, boxSizing: "border-box" }}
+              />
+
+              {selectedImage ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <small style={{ color: "#a1a1aa" }}>
+                    {videoSourceImageUrl ? "Gambar dipilih dari History AI Image:" : "Preview gambar upload:"}
+                  </small>
+                  <img src={selectedImage} alt="AI Video source" style={{ width: "100%", maxHeight: 420, objectFit: "contain", borderRadius: 18, background: "#000", border: "1px solid #27272a" }} />
+                  <button onClick={clearVideoImage} style={{ width: "auto", background: "#18181b", border: "1px solid #2f2f35" }}>
+                    Hapus Gambar
+                  </button>
+                </div>
+              ) : (
+                <div style={{ border: "1px dashed #3f3f46", borderRadius: 18, padding: 18, color: "#a1a1aa", textAlign: "center", lineHeight: 1.6 }}>
+                  Upload gambar di sini, atau buka AI Image lalu klik tombol Video di history gambar.
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 12 }}>
+              <strong>2. Prompt Gerakan Video</strong>
+
+              <textarea
+                value={videoPrompt}
+                onChange={(e) => setVideoPrompt(e.target.value)}
+                placeholder="Contoh: kamera bergerak perlahan mendekat, rambut tertiup angin, cinematic lighting, smooth motion"
+                rows={5}
+                style={{ width: "100%", borderRadius: 18, border: "1px solid #2f2f35", background: "#0f0f11", color: "#fff", padding: 16, fontSize: 15, outline: "none", resize: "vertical", boxSizing: "border-box" }}
+              />
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                <label style={{ display: "grid", gap: 6, color: "#a1a1aa", fontSize: 13 }}>
+                  Durasi
+                  <select value={videoDuration} onChange={(e) => setVideoDuration(e.target.value)} style={{ padding: 12 }}>
+                    <option value="5">5 detik</option>
+                    <option value="10">10 detik</option>
+                  </select>
+                </label>
+
+                <label style={{ display: "grid", gap: 6, color: "#a1a1aa", fontSize: 13 }}>
+                  Rasio
+                  <select value={videoAspectRatio} onChange={(e) => setVideoAspectRatio(e.target.value)} style={{ padding: 12 }}>
+                    <option value="16:9">16:9 Landscape</option>
+                    <option value="9:16">9:16 Vertical</option>
+                    <option value="1:1">1:1 Square</option>
+                  </select>
+                </label>
+
+                <label style={{ display: "grid", gap: 6, color: "#a1a1aa", fontSize: 13 }}>
+                  Model
+                  <select value={videoModel} onChange={(e) => setVideoModel(e.target.value)} style={{ padding: 12 }}>
+                    <option value="kling">Kling</option>
+                    <option value="kling-v1-6">Kling v1.6</option>
+                    <option value="kling-v2">Kling v2</option>
+                  </select>
+                </label>
+              </div>
+
+              <small style={{ color: "#fbbf24", lineHeight: 1.6, background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.25)", borderRadius: 12, padding: 10, display: "block" }}>
+                Catatan: generate video biasanya lebih lama dari gambar. Bisa 1–3 menit tergantung PiAPI/Kling dan jaringan.
+              </small>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={generateVideo} disabled={videoLoading} style={{ background: "#f97316" }}>
+                {videoLoading ? "Generating Video..." : "Generate Video"}
+              </button>
+
+              <button onClick={clearVideoTool} disabled={videoLoading} style={{ width: "auto", background: "#18181b", border: "1px solid #2f2f35" }}>
+                Reset
+              </button>
+            </div>
+
+            {videoInfo && (
+              <div style={{ background: "rgba(37, 99, 235, 0.15)", color: "#bfdbfe", border: "1px solid rgba(59, 130, 246, 0.3)", borderRadius: 14, padding: 14, lineHeight: 1.6 }}>
+                {videoInfo}
+                {videoTaskId && <div style={{ marginTop: 8, color: "#93c5fd", fontSize: 13 }}>Task ID: {videoTaskId}</div>}
+              </div>
+            )}
+
+            {videoError && (
+              <div style={{ background: "rgba(220, 38, 38, 0.15)", color: "#fca5a5", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 14, padding: 14, lineHeight: 1.6, overflowWrap: "anywhere" }}>
+                {videoError}
+              </div>
+            )}
+
+            {generatedVideo?.video_url && (
+              <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div>
+                    <strong>Hasil Video</strong>
+                    <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>Status: {generatedVideo.status || videoStatus || "completed"}</p>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={() => downloadVideoFromUrl(generatedVideo.video_url)} style={{ width: "auto", background: "#16a34a" }}>Download</button>
+                    <button onClick={() => saveVideoHistory(generatedVideo)} disabled={videoSaving} style={{ width: "auto", background: "#2563eb" }}>{videoSaving ? "Saving..." : "Save History"}</button>
+                  </div>
+                </div>
+
+                <video src={generatedVideo.video_url} controls playsInline style={{ width: "100%", maxHeight: 620, borderRadius: 18, background: "#000", border: "1px solid #27272a" }} />
+
+                <div style={{ background: "#0f0f11", border: "1px solid #27272a", borderRadius: 18, padding: 14 }}>
+                  <strong>Prompt:</strong>
+                  <p style={{ marginTop: 6, color: "#d4d4d8" }}>{generatedVideo.prompt || videoPrompt}</p>
+                </div>
+              </div>
+            )}
+
+            <div style={{ background: "#101014", border: "1px solid #27272a", borderRadius: 22, padding: 16, display: "grid", gap: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <strong>History AI Video</strong>
+                  <p style={{ margin: "6px 0 0", color: "#a1a1aa" }}>Video yang berhasil dibuat akan muncul di sini.</p>
+                </div>
+
+                <button onClick={() => loadVideoHistory(user.email)} disabled={videoHistoryLoading} style={{ width: "auto", background: "#18181b", border: "1px solid #2f2f35" }}>
+                  {videoHistoryLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              {videoHistory.length === 0 ? (
+                <div style={{ border: "1px dashed #3f3f46", borderRadius: 18, padding: 18, color: "#a1a1aa", textAlign: "center", lineHeight: 1.6 }}>
+                  Belum ada history video.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                  {videoHistory.map((item) => (
+                    <div key={item.id} style={{ background: "#0f0f11", border: "1px solid #27272a", borderRadius: 18, padding: 10, display: "grid", gap: 8 }}>
+                      <video src={item.video_url} controls playsInline style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 14, background: "#000" }} />
+                      <small style={{ color: "#a1a1aa", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.prompt || "Tanpa prompt"}</small>
+                      <small style={{ color: "#71717a" }}>{item.model || "kling"} · {item.status || "completed"}</small>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <button onClick={() => setGeneratedVideo(item)} style={{ fontSize: 13, padding: "8px 10px" }}>Open</button>
+                        <button onClick={() => downloadVideoFromUrl(item.video_url, `properside-ai-video-${item.id || Date.now()}.mp4`)} style={{ fontSize: 13, padding: "8px 10px", background: "#16a34a" }}>Download</button>
+                        <button onClick={() => { setVideoPrompt(item.prompt || ""); if (item.source_image_url) { clearVideoImage(); setVideoSourceImageUrl(item.source_image_url); } }} style={{ fontSize: 13, padding: "8px 10px", background: "#7c3aed" }}>Reuse</button>
+                        <button onClick={() => deleteVideoHistoryItem(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#7f1d1d" }}>🗑️ Hapus</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   function renderChatHistory() {
     return (
       <div className="history-box">
@@ -1108,6 +1688,7 @@ export default function Home() {
                       <small style={{ color: "#71717a" }}>{item.image_type === "edit" ? "Edit" : "Generate"} · {item.provider || "-"}</small>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         <button onClick={() => useHistoryImage(item)} style={{ fontSize: 13, padding: "8px 10px" }}>Preview</button>
+                        <button onClick={() => useImageForVideo(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#f97316" }}>Video</button>
                         <button onClick={() => reuseHistoryPrompt(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#7c3aed" }}>Reuse</button>
                         <button onClick={() => downloadImageFromUrl(item.image_url, `properside-ai-history-${item.id || Date.now()}.png`)} style={{ fontSize: 13, padding: "8px 10px", background: "#16a34a" }}>Download</button>
                         <button onClick={() => deleteImageHistoryItem(item)} style={{ fontSize: 13, padding: "8px 10px", background: "#7f1d1d" }}>🗑️ Hapus</button>
@@ -1134,6 +1715,7 @@ export default function Home() {
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <button onClick={() => setActiveTool("chat")}>Mulai Chat AI</button>
               <button onClick={() => setActiveTool("image")}>Buka AI Image</button>
+              <button onClick={() => setActiveTool("video")}>Buka AI Video</button>
             </div>
           </div>
         </section>
@@ -1223,6 +1805,8 @@ export default function Home() {
     }
 
     if (activeTool === "image") return renderImageTool();
+
+    if (activeTool === "video") return renderVideoTool();
 
     return (
       <section className="placeholder-panel">
