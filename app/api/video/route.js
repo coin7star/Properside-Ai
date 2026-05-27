@@ -3,10 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-const PIAPI_BASE_URL = process.env.PIAPI_BASE_URL || "https://api.piapi.ai";
-const PIAPI_TASK_ENDPOINT = process.env.PIAPI_TASK_ENDPOINT || "/api/v1/task";
-const VIDEO_INPUT_BUCKET = process.env.VIDEO_INPUT_BUCKET || "video-inputs";
-
 function getSupabaseAdmin() {
   return createClient(
     process.env.SUPABASE_URL,
@@ -14,284 +10,282 @@ function getSupabaseAdmin() {
   );
 }
 
-function getPiapiHeaders() {
-  const key = process.env.PIAPI_API_KEY;
-
-  if (!key) {
-    throw new Error("PIAPI_API_KEY belum diisi di environment.");
-  }
-
-  return {
-    "Content-Type": "application/json",
-    "x-api-key": key
-  };
+function safeText(value, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim() || fallback;
 }
 
-function getTaskId(data) {
+function normalizeDuration(value) {
+  const num = Number(value);
+  if (num === 10) return 10;
+  return 5;
+}
+
+function normalizeRatio(value) {
+  const ratio = safeText(value, "16:9");
+  const allowed = ["16:9", "9:16", "1:1"];
+  return allowed.includes(ratio) ? ratio : "16:9";
+}
+
+function getVideoUrlFromTask(task) {
   return (
-    data?.data?.task_id ||
-    data?.data?.id ||
-    data?.task_id ||
-    data?.id ||
-    data?.result?.task_id ||
-    data?.result?.id ||
+    task?.data?.output?.video_url ||
+    task?.data?.output?.video ||
+    task?.data?.output?.url ||
+    task?.output?.video_url ||
+    task?.output?.video ||
+    task?.output?.url ||
+    task?.result?.video_url ||
+    task?.result?.video ||
+    task?.result?.url ||
+    task?.video_url ||
+    task?.video ||
+    task?.url ||
     ""
   );
 }
 
-function getStatus(data) {
+function getTaskStatus(task) {
   return (
-    data?.data?.status ||
-    data?.status ||
-    data?.result?.status ||
-    data?.data?.state ||
-    data?.state ||
+    task?.data?.status ||
+    task?.status ||
+    task?.task_status ||
+    task?.data?.task_status ||
     "unknown"
   );
 }
 
-function getVideoUrl(data) {
-  return (
-    data?.data?.output?.video_url ||
-    data?.data?.output?.url ||
-    data?.data?.video_url ||
-    data?.data?.url ||
-    data?.result?.video_url ||
-    data?.result?.url ||
-    data?.output?.video_url ||
-    data?.output?.url ||
-    ""
-  );
+function getTaskId(task) {
+  return task?.data?.task_id || task?.task_id || task?.id || task?.data?.id || "";
 }
 
-function normalizePiapiTask(data) {
-  return {
-    raw: data,
-    task_id: getTaskId(data),
-    status: getStatus(data),
-    video_url: getVideoUrl(data)
-  };
-}
-
-async function uploadInputImageToSupabase({ file, user_email }) {
+async function uploadImageToSupabase(file, userEmail) {
   const supabase = getSupabaseAdmin();
-
-  const ext =
-    file.type?.includes("png")
-      ? "png"
-      : file.type?.includes("webp")
-      ? "webp"
-      : "jpg";
-
-  const safeEmail = String(user_email || "user").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${safeEmail}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const ext = file?.name?.split(".")?.pop()?.toLowerCase() || "png";
+  const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "png";
+  const path = `${encodeURIComponent(userEmail)}/${Date.now()}-${crypto.randomUUID()}.${safeExt}`;
 
   const arrayBuffer = await file.arrayBuffer();
 
-  const { error: uploadError } = await supabase.storage
-    .from(VIDEO_INPUT_BUCKET)
-    .upload(path, arrayBuffer, {
-      contentType: file.type || "image/jpeg",
-      upsert: false
-    });
+  const { error } = await supabase.storage.from("video-inputs").upload(path, arrayBuffer, {
+    contentType: file.type || "image/png",
+    upsert: false
+  });
 
-  if (uploadError) {
-    throw new Error(
-      `Gagal upload gambar ke Supabase Storage bucket "${VIDEO_INPUT_BUCKET}": ${uploadError.message}`
-    );
+  if (error) {
+    throw new Error(`Gagal upload gambar ke Supabase Storage: ${error.message}`);
   }
 
-  const { data } = supabase.storage.from(VIDEO_INPUT_BUCKET).getPublicUrl(path);
+  const { data } = supabase.storage.from("video-inputs").getPublicUrl(path);
 
-  if (!data?.publicUrl) {
-    throw new Error("Gagal membuat public URL gambar input.");
-  }
-
-  return data.publicUrl;
+  return {
+    path,
+    url: data?.publicUrl || ""
+  };
 }
 
-async function createKlingImageToVideoTask({ prompt, image_url, duration, aspect_ratio, model }) {
-  const url = `${PIAPI_BASE_URL}${PIAPI_TASK_ENDPOINT}`;
+async function createPiapiKlingTask({ imageUrl, prompt, duration, ratio }) {
+  const piapiKey = process.env.PIAPI_API_KEY;
 
-  /*
-    Catatan:
-    PiAPI biasanya memakai endpoint task.
-    Kalau dashboard PiAPI kamu punya format body berbeda, cukup edit bagian body ini.
-  */
+  if (!piapiKey) {
+    throw new Error("PIAPI_API_KEY belum diisi di Cloudflare ENV.");
+  }
+
+  if (!imageUrl) {
+    throw new Error("Image URL kosong. Upload gambar dulu.");
+  }
+
   const body = {
-    model: model || "kling",
-    task_type: "image_to_video",
+    model: "kling",
+    task_type: "video_generation",
     input: {
       prompt,
-      image_url,
-      duration: duration || "5",
-      aspect_ratio: aspect_ratio || "16:9"
-    },
-    config: {
-      service_mode: "public"
+      image_url: imageUrl,
+      duration,
+      aspect_ratio: ratio,
+      mode: "std"
     }
   };
 
-  const response = await fetch(url, {
+  const res = await fetch("https://api.piapi.ai/api/v1/task", {
     method: "POST",
-    headers: getPiapiHeaders(),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": piapiKey
+    },
     body: JSON.stringify(body)
   });
 
-  const data = await response.json().catch(() => ({}));
+  const text = await res.text();
+  let data;
 
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      error: data?.message || data?.error || "PiAPI gagal membuat task video.",
-      detail: data
-    };
-  }
-
-  return {
-    ok: true,
-    ...normalizePiapiTask(data)
-  };
-}
-
-async function checkKlingTask(task_id) {
-  const url = `${PIAPI_BASE_URL}${PIAPI_TASK_ENDPOINT}/${encodeURIComponent(task_id)}`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: getPiapiHeaders()
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      error: data?.message || data?.error || "PiAPI gagal cek status task.",
-      detail: data
-    };
-  }
-
-  return {
-    ok: true,
-    ...normalizePiapiTask(data)
-  };
-}
-
-export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const task_id = searchParams.get("task_id");
-
-    if (!task_id) {
-      return Response.json(
-        { success: false, error: "task_id wajib ada." },
-        { status: 400 }
-      );
-    }
-
-    const result = await checkKlingTask(task_id);
-
-    return Response.json({
-      success: result.ok,
-      ...result
-    });
-  } catch (error) {
-    return Response.json(
-      {
-        success: false,
-        error: error.message
-      },
-      { status: 500 }
-    );
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
   }
+
+  if (!res.ok) {
+    return {
+      success: false,
+      error:
+        data?.message ||
+        data?.error ||
+        data?.raw ||
+        `PiAPI error status ${res.status}`,
+      detail: data,
+      sent_body: body
+    };
+  }
+
+  return {
+    success: true,
+    data,
+    task_id: getTaskId(data),
+    status: getTaskStatus(data),
+    video_url: getVideoUrlFromTask(data),
+    sent_body: body
+  };
 }
 
 export async function POST(req) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
+    let userEmail = "";
     let prompt = "";
-    let user_email = "";
-    let image_url = "";
-    let duration = "5";
-    let aspect_ratio = "16:9";
-    let model = "kling";
+    let duration = 5;
+    let ratio = "16:9";
+    let imageUrl = "";
+    let imageFile = null;
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
 
-      prompt = String(formData.get("prompt") || "");
-      user_email = String(formData.get("user_email") || "");
-      image_url = String(formData.get("image_url") || "");
-      duration = String(formData.get("duration") || "5");
-      aspect_ratio = String(formData.get("aspect_ratio") || "16:9");
-      model = String(formData.get("model") || "kling");
-
-      const file = formData.get("image");
-
-      if (!image_url && file && typeof file === "object" && file.size > 0) {
-        image_url = await uploadInputImageToSupabase({
-          file,
-          user_email
-        });
-      }
+      userEmail = safeText(formData.get("user_email"));
+      prompt = safeText(formData.get("prompt"));
+      duration = normalizeDuration(formData.get("duration"));
+      ratio = normalizeRatio(formData.get("ratio") || formData.get("aspect_ratio"));
+      imageUrl = safeText(formData.get("image_url"));
+      imageFile = formData.get("image");
     } else {
       const body = await req.json();
 
-      prompt = String(body?.prompt || "");
-      user_email = String(body?.user_email || "");
-      image_url = String(body?.image_url || "");
-      duration = String(body?.duration || "5");
-      aspect_ratio = String(body?.aspect_ratio || "16:9");
-      model = String(body?.model || "kling");
+      userEmail = safeText(body?.user_email);
+      prompt = safeText(body?.prompt);
+      duration = normalizeDuration(body?.duration);
+      ratio = normalizeRatio(body?.ratio || body?.aspect_ratio);
+      imageUrl = safeText(body?.image_url);
     }
 
-    if (!user_email) {
-      return Response.json(
-        { success: false, error: "User belum login." },
-        { status: 401 }
-      );
+    if (!userEmail) {
+      return Response.json({ success: false, error: "user_email wajib ada." }, { status: 400 });
     }
 
-    if (!prompt.trim()) {
-      return Response.json(
-        { success: false, error: "Prompt video wajib diisi." },
-        { status: 400 }
-      );
+    if (!prompt) {
+      return Response.json({ success: false, error: "Prompt video wajib diisi." }, { status: 400 });
     }
 
-    if (!image_url) {
+    if (!imageUrl && imageFile && typeof imageFile.arrayBuffer === "function") {
+      const uploaded = await uploadImageToSupabase(imageFile, userEmail);
+      imageUrl = uploaded.url;
+    }
+
+    if (!imageUrl) {
       return Response.json(
         { success: false, error: "Gambar wajib diupload atau image_url wajib ada." },
         { status: 400 }
       );
     }
 
-    const task = await createKlingImageToVideoTask({
-      prompt: prompt.trim(),
-      image_url,
+    const result = await createPiapiKlingTask({
+      imageUrl,
+      prompt,
       duration,
-      aspect_ratio,
-      model
+      ratio
     });
 
+    if (!result.success) {
+      return Response.json(result, { status: 400 });
+    }
+
     return Response.json({
-      success: task.ok,
-      prompt: prompt.trim(),
-      source_image_url: image_url,
-      duration,
-      aspect_ratio,
-      model,
-      ...task
+      success: true,
+      task_id: result.task_id,
+      status: result.status,
+      video_url: result.video_url,
+      image_url: imageUrl,
+      raw: result.data
     });
   } catch (error) {
     return Response.json(
       {
         success: false,
-        error: error.message
+        error: error?.message || "Server error saat generate video."
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const taskId = searchParams.get("task_id");
+
+    if (!taskId) {
+      return Response.json({ success: false, error: "task_id wajib ada." }, { status: 400 });
+    }
+
+    const piapiKey = process.env.PIAPI_API_KEY;
+
+    if (!piapiKey) {
+      return Response.json(
+        { success: false, error: "PIAPI_API_KEY belum diisi di Cloudflare ENV." },
+        { status: 500 }
+      );
+    }
+
+    const res = await fetch(`https://api.piapi.ai/api/v1/task/${encodeURIComponent(taskId)}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": piapiKey
+      },
+      cache: "no-store"
+    });
+
+    const text = await res.text();
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+
+    if (!res.ok) {
+      return Response.json(
+        {
+          success: false,
+          error: data?.message || data?.error || data?.raw || `PiAPI status error ${res.status}`,
+          detail: data
+        },
+        { status: 400 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      task_id: taskId,
+      status: getTaskStatus(data),
+      video_url: getVideoUrlFromTask(data),
+      raw: data
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        error: error?.message || "Server error saat cek status video."
       },
       { status: 500 }
     );
